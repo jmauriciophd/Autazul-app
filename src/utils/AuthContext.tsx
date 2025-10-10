@@ -35,12 +35,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function checkUser() {
     try {
-      const { data: { session } } = await supabase.auth.getSession()
+      console.log('Checking user session...')
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      
+      if (sessionError) {
+        console.error('Error getting session:', sessionError)
+        setLoading(false)
+        return
+      }
       
       if (session) {
+        console.log('Session found, fetching user data...')
         api.setToken(session.access_token)
-        const { user: userData } = await api.getUser()
-        setUser(userData)
+        try {
+          const { user: userData } = await api.getUser()
+          console.log('User data fetched successfully:', userData)
+          setUser(userData)
+        } catch (userError) {
+          console.error('Error fetching user data:', userError)
+          // If getting user fails, clear the session
+          await supabase.auth.signOut()
+          api.setToken(null)
+        }
+      } else {
+        console.log('No session found')
       }
     } catch (error) {
       console.error('Error checking user session:', error)
@@ -67,7 +85,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function signUp(email: string, password: string, name: string) {
     await api.signup(email, password, name)
     
-    // After signup, sign in
+    // After signup, sign in with a small delay to ensure user is created
+    await new Promise(resolve => setTimeout(resolve, 500))
     await signIn(email, password)
   }
 

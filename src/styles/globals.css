@@ -1,15 +1,17 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;700&family=Nunito:wght@400;700;800&display=swap');
+
 @custom-variant dark (&:is(.dark *));
 
 :root {
   --font-size: 16px;
   --background: #ffffff;
-  --foreground: oklch(0.145 0 0);
+  --foreground: #373737;
   --card: #ffffff;
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: #373737;
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: #2563eb;
-  --primary-foreground: oklch(1 0 0);
+  --popover-foreground: #373737;
+  --primary: #15C3D6;
+  --primary-foreground: #ffffff;
   --secondary: oklch(0.95 0.0058 264.53);
   --secondary-foreground: #030213;
   --muted: #ececf0;
@@ -20,10 +22,11 @@
   --destructive-foreground: #ffffff;
   --border: rgba(0, 0, 0, 0.1);
   --input: transparent;
-  --input-background: #f3f3f5;
+  --input-background: #ffffff;
   --switch-background: #cbced4;
-  --font-weight-medium: 500;
+  --font-weight-medium: 700;
   --font-weight-normal: 400;
+  --font-weight-extrabold: 800;
   --ring: oklch(0.708 0 0);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
@@ -39,6 +42,19 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  
+  /* Autazul Custom Colors */
+  --autazul-logo: #46B0FD;
+  --autazul-button: #15C3D6;
+  --autazul-title: #5C8599;
+  --autazul-text: #373737;
+  --autazul-input-placeholder: #BDBCBC;
+  
+  /* Alert Colors */
+  --alert-grave: #dc2626;
+  --alert-warning: #eab308;
+  --alert-normal: #22c55e;
+  --alert-medium: #9ca3af;
 }
 
 .dark {
@@ -126,6 +142,45 @@
 
   body {
     @apply bg-background text-foreground;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 800;
+  }
+  
+  input::placeholder {
+    color: #BDBCBC;
+    text-transform: uppercase;
+  }
+  
+  textarea::placeholder {
+    color: #BDBCBC;
+  }
+  
+  /* Bordas e estilos para inputs, textareas e campos de data/hora */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"],
+  input[type="number"],
+  input[type="tel"],
+  input[type="url"],
+  textarea {
+    border: 1px solid #BDBCBC !important;
+  }
+  
+  input[type="text"]:focus,
+  input[type="email"]:focus,
+  input[type="password"]:focus,
+  input[type="date"]:focus,
+  input[type="time"]:focus,
+  input[type="datetime-local"]:focus,
+  input[type="number"]:focus,
+  input[type="tel"]:focus,
+  input[type="url"]:focus,
+  textarea:focus {
+    border-color: var(--autazul-button) !important;
+    outline: none;
   }
 }
 
@@ -137,49 +192,79 @@
     h1 {
       font-size: var(--text-2xl);
       font-weight: var(--font-weight-medium);
+      font-family: 'Roboto Condensed', sans-serif;
       line-height: 1.5;
+      color: var(--autazul-title);
     }
 
     h2 {
       font-size: var(--text-xl);
       font-weight: var(--font-weight-medium);
+      font-family: 'Roboto Condensed', sans-serif;
       line-height: 1.5;
+      color: var(--autazul-title);
     }
 
     h3 {
       font-size: var(--text-lg);
       font-weight: var(--font-weight-medium);
+      font-family: 'Roboto Condensed', sans-serif;
       line-height: 1.5;
+      color: var(--autazul-title);
     }
 
     h4 {
       font-size: var(--text-base);
       font-weight: var(--font-weight-medium);
+      font-family: 'Roboto Condensed', sans-serif;
       line-height: 1.5;
+      color: var(--autazul-title);
     }
 
     p {
       font-size: var(--text-base);
-      font-weight: var(--font-weight-normal);
+      font-weight: var(--font-weight-extrabold);
+      font-family: 'Nunito', sans-serif;
       line-height: 1.5;
+      color: var(--autazul-text);
     }
 
     label {
       font-size: var(--text-base);
       font-weight: var(--font-weight-medium);
+      font-family: 'Nunito', sans-serif;
       line-height: 1.5;
+      color: var(--autazul-text);
     }
 
     button {
       font-size: var(--text-base);
       font-weight: var(--font-weight-medium);
+      font-family: 'Nunito', sans-serif;
       line-height: 1.5;
     }
 
     input {
       font-size: var(--text-base);
-      font-weight: var(--font-weight-normal);
+      font-weight: 400;
+      font-family: 'Nunito', sans-serif;
       line-height: 1.5;
+    }
+    
+    textarea {
+      font-size: var(--text-base);
+      font-weight: 400;
+      font-family: 'Nunito', sans-serif;
+      line-height: 1.5;
+    }
+    
+    input::placeholder {
+      text-transform: uppercase;
+      color: var(--autazul-input-placeholder);
+    }
+    
+    textarea::placeholder {
+      color: var(--autazul-input-placeholder);
     }
   }
 }

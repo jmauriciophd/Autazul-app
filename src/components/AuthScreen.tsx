@@ -4,7 +4,8 @@ import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
-import { Heart } from 'lucide-react'
+import logoImage from 'figma:asset/4808b01f93843e68942dc5705a8c21d55435df1b.png'
+import backgroundImage from 'figma:asset/e42e586c023e98f242ba36ab0d21a55a8ab1b18c.png'
 
 export function AuthScreen() {
   const { signIn, signUp } = useAuth()
@@ -39,17 +40,38 @@ export function AuthScreen() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-4">
+    <div 
+      className="min-h-screen flex items-center justify-center p-4 relative"
+      style={{
+        backgroundImage: `url(${backgroundImage})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat'
+      }}
+    >
+      {/* Overlay for transparency */}
+      <div className="absolute inset-0 bg-white/97"></div>
+      
+      <Card className="w-full max-w-md relative z-10 shadow-2xl border-2" style={{ borderColor: '#15C3D6' }}>
+        <CardHeader className="space-y-6 pb-8">
           <div className="flex justify-center">
-            <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
-              <Heart className="w-8 h-8 text-white" fill="white" />
-            </div>
+            <img 
+              src={logoImage} 
+              alt="Autazul Logo" 
+              className="w-28 h-28 object-contain"
+            />
           </div>
           <div className="text-center">
-            <CardTitle className="text-3xl">Autazul</CardTitle>
-            <CardDescription>
+            <h1 className="mb-2" style={{ 
+              fontFamily: "'Roboto Condensed', sans-serif",
+              color: '#46B0FD',
+              fontWeight: 700,
+              fontSize: '4.5rem',
+              lineHeight: '1'
+            }}>
+              Autazul
+            </h1>
+            <CardDescription className="text-base" style={{ color: '#5C8599' }}>
               {isLogin
                 ? 'Entre na sua conta'
                 : 'Crie sua conta como responsável'}
@@ -60,30 +82,34 @@ export function AuthScreen() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {!isLogin && (
               <div className="space-y-2">
-                <Label htmlFor="name">Nome Completo</Label>
+                <Label htmlFor="name" style={{ color: '#373737' }}>Nome Completo</Label>
                 <Input
                   id="name"
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required={!isLogin}
-                  placeholder="Seu nome completo"
+                  placeholder="SEU NOME COMPLETO"
+                  className="bg-white border-2"
+                  style={{ borderColor: '#BDBCBC' }}
                 />
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" style={{ color: '#373737' }}>Email</Label>
               <Input
                 id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                placeholder="seu@email.com"
+                placeholder="SEU@EMAIL.COM"
+                className="bg-white border-2"
+                style={{ borderColor: '#BDBCBC' }}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
+              <Label htmlFor="password" style={{ color: '#373737' }}>Senha</Label>
               <Input
                 id="password"
                 type="password"
@@ -92,14 +118,25 @@ export function AuthScreen() {
                 required
                 placeholder="••••••••"
                 minLength={6}
+                className="bg-white border-2"
+                style={{ borderColor: '#BDBCBC' }}
               />
             </div>
             {error && (
-              <div className="text-destructive text-sm bg-destructive/10 p-3 rounded-lg">
+              <div className="text-white text-sm p-3 rounded-lg" style={{ backgroundColor: '#dc2626' }}>
                 {error}
               </div>
             )}
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button 
+              type="submit" 
+              className="w-full text-white hover:opacity-90" 
+              disabled={loading}
+              style={{ 
+                backgroundColor: '#15C3D6',
+                fontFamily: "'Nunito', sans-serif",
+                fontWeight: 700
+              }}
+            >
               {loading ? 'Carregando...' : isLogin ? 'Entrar' : 'Criar Conta'}
             </Button>
             <Button
@@ -109,6 +146,10 @@ export function AuthScreen() {
               onClick={() => {
                 setIsLogin(!isLogin)
                 setError('')
+              }}
+              style={{ 
+                color: '#5C8599',
+                fontFamily: "'Nunito', sans-serif"
               }}
             >
               {isLogin

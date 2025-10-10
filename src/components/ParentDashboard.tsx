@@ -242,26 +242,46 @@ export function ParentDashboard() {
   const eventsForSelectedDate = events.filter(event => event.date === selectedDate.toISOString().split('T')[0])
 
   const severityColors: Record<string, string> = {
-    'Baixa': 'bg-green-100 text-green-800 border-green-200',
-    'Média': 'bg-yellow-100 text-yellow-800 border-yellow-200',
-    'Alta': 'bg-red-100 text-red-800 border-red-200',
+    'Normal': 'text-white border-green-500',
+    'Médio': 'text-white border-gray-400',
+    'Alerta': 'text-white border-yellow-500',
+    'Grave': 'text-white border-red-600',
+    // Legacy support
+    'Baixa': 'text-white border-green-500',
+    'Média': 'text-white border-yellow-500',
+    'Alta': 'text-white border-red-600',
+  }
+  
+  const severityBackgroundColors: Record<string, string> = {
+    'Normal': '#22c55e',
+    'Médio': '#9ca3af',
+    'Alerta': '#eab308',
+    'Grave': '#dc2626',
+    // Legacy support
+    'Baixa': '#22c55e',
+    'Média': '#eab308',
+    'Alta': '#dc2626',
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen" style={{ backgroundColor: '#f5f5f5' }}>
       {/* Header */}
-      <header className="bg-white border-b shadow-sm">
+      <header className="bg-white border-b shadow-sm" style={{ borderColor: '#15C3D6' }}>
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#46B0FD' }}>
               <Heart className="w-5 h-5 text-white" fill="white" />
             </div>
             <div>
-              <h1 className="text-xl">Autazul</h1>
-              <p className="text-sm text-muted-foreground">Olá, {user?.name}</p>
+              <h1 className="text-xl" style={{ fontFamily: "'Roboto Condensed', sans-serif", color: '#46B0FD' }}>Autazul</h1>
+              <p className="text-sm" style={{ color: '#5C8599' }}>Olá, {user?.name}</p>
             </div>
           </div>
-          <Button variant="ghost" onClick={signOut}>
+          <Button 
+            variant="ghost" 
+            onClick={signOut}
+            style={{ color: '#5C8599' }}
+          >
             <LogOut className="w-4 h-4 mr-2" />
             Sair
           </Button>
@@ -678,6 +698,7 @@ export function ParentDashboard() {
                             event={event}
                             onClick={() => setSelectedEvent(event)}
                             severityColors={severityColors}
+                            severityBackgroundColors={severityBackgroundColors}
                           />
                         ))}
                       </div>

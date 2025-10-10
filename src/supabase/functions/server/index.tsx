@@ -64,18 +64,45 @@ app.post('/make-server-a07d0a8e/get-user', async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1]
     if (!accessToken) {
+      console.log('No access token provided in get-user request')
       return c.json({ error: 'No access token provided' }, 401)
     }
 
+    console.log('Getting user with token:', accessToken.substring(0, 20) + '...')
     const { data: { user }, error } = await supabase.auth.getUser(accessToken)
-    if (error || !user) {
+    
+    if (error) {
+      console.log('Supabase auth error in get-user:', error)
+      return c.json({ error: 'Invalid token' }, 401)
+    }
+    
+    if (!user) {
+      console.log('No user found for token')
       return c.json({ error: 'Invalid token' }, 401)
     }
 
+    console.log('User found:', user.id, user.email)
+    
+    // Try to get user data from KV store
     const userData = await kv.get(`user:${user.id}`)
-    return c.json({ user: userData || user.user_metadata })
+    
+    if (userData) {
+      console.log('User data found in KV store:', userData)
+      return c.json({ user: userData })
+    }
+    
+    // Fallback to user metadata
+    console.log('Using user metadata as fallback:', user.user_metadata)
+    const fallbackUser = {
+      id: user.id,
+      email: user.email,
+      name: user.user_metadata.name || user.email,
+      role: user.user_metadata.role || 'parent'
+    }
+    
+    return c.json({ user: fallbackUser })
   } catch (error) {
-    console.log('Error getting user:', error)
+    console.log('Unexpected error in get-user:', error)
     return c.json({ error: String(error) }, 500)
   }
 })
