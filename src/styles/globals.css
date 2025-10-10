@@ -165,7 +165,8 @@
   input[type="number"],
   input[type="tel"],
   input[type="url"],
-  textarea {
+  textarea,
+  button[role="combobox"] {
     border: 1px solid #BDBCBC !important;
   }
   
@@ -178,7 +179,8 @@
   input[type="number"]:focus,
   input[type="tel"]:focus,
   input[type="url"]:focus,
-  textarea:focus {
+  textarea:focus,
+  button[role="combobox"]:focus {
     border-color: var(--autazul-button) !important;
     outline: none;
   }

@@ -51,8 +51,13 @@ export function ChildProfileEditor({ child, open, onOpenChange, onUpdate }: Chil
   useEffect(() => {
     if (open) {
       loadCoParents()
+      // Atualiza os estados com os dados do child atual
+      setName(child.name)
+      setBirthDate(child.birthDate)
+      setPhoto(child.photo || '')
+      setSchool(child.school || '')
     }
-  }, [open, child.id])
+  }, [open, child.id, child.name, child.birthDate, child.photo, child.school])
 
   async function loadCoParents() {
     try {
