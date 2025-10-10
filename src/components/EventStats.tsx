@@ -71,8 +71,8 @@ export function EventStats({ events }: EventStatsProps) {
           <div className="flex items-center gap-2 text-sm">
             {trend === 'up' && (
               <>
-                <TrendingUp className="w-4 h-4 text-red-500" />
-                <span className="text-red-500">Aumento</span>
+                <TrendingUp className="w-4 h-4 text-green-500" />
+                <span className="text-green-500">Aumento</span>
               </>
             )}
             {trend === 'down' && (
@@ -107,7 +107,7 @@ export function EventStats({ events }: EventStatsProps) {
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-2 text-sm">
-            <AlertCircle className="w-4 h-4 text-red-500" />
+            <AlertCircle className={`w-4 h-4 ${severityCounts.Alta > 0 ? 'text-red-500' : 'text-green-500'}`} />
             <span className="text-muted-foreground">
               {severityCounts.Alta > 0 ? 'Requer atenção' : 'Tudo bem'}
             </span>

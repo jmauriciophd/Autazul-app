@@ -261,6 +261,56 @@ export class ApiClient {
   async getPublicSettings() {
     return this.request<{ settings: any }>('/admin/public-settings')
   }
+
+  // Notifications
+  async getNotifications() {
+    return this.request<{ notifications: any[] }>('/notifications')
+  }
+
+  async markNotificationAsRead(notificationId: string) {
+    return this.request<{ success: boolean }>(`/notifications/${notificationId}/read`, {
+      method: 'PUT',
+    })
+  }
+
+  async markAllNotificationsAsRead() {
+    return this.request<{ success: boolean }>('/notifications/read-all', {
+      method: 'PUT',
+    })
+  }
+
+  // Password change
+  async changePassword(currentPassword: string, newPassword: string) {
+    return this.request<{ success: boolean; message: string }>('/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    })
+  }
+
+  // 2FA
+  async toggle2FA(enabled: boolean) {
+    return this.request<{ success: boolean; twoFactorEnabled: boolean }>('/toggle-2fa', {
+      method: 'POST',
+      body: JSON.stringify({ enabled }),
+    })
+  }
+
+  async generate2FACode() {
+    return this.request<{ success: boolean; message: string }>('/generate-2fa-code', {
+      method: 'POST',
+    })
+  }
+
+  async verify2FACode(code: string) {
+    return this.request<{ success: boolean; message: string }>('/verify-2fa-code', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    })
+  }
+
+  async check2FARequired() {
+    return this.request<{ required: boolean }>('/check-2fa-required')
+  }
 }
 
 export const api = new ApiClient()

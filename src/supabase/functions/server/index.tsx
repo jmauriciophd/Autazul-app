@@ -1076,4 +1076,603 @@ app.get('/make-server-a07d0a8e/admin/public-settings', async (c) => {
   }
 })
 
+// ===== NOTIFICATION ROUTES =====
+
+// Create notification
+async function createNotification(userId: string, type: string, title: string, message: string, relatedId?: string) {
+  const notificationId = generateId()
+  const notification = {
+    id: notificationId,
+    userId,
+    type,
+    title,
+    message,
+    relatedId,
+    read: false,
+    createdAt: new Date().toISOString()
+  }
+  
+  await kv.set(`notification:${notificationId}`, notification)
+  
+  const userNotifications = await kv.get(`notifications:user:${userId}`) || []
+  await kv.set(`notifications:user:${userId}`, [notificationId, ...userNotifications])
+  
+  return notification
+}
+
+// Get user notifications
+app.get('/make-server-a07d0a8e/notifications', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const notificationIds = await kv.get(`notifications:user:${user.id}`) || []
+    const notifications = []
+    
+    for (const id of notificationIds) {
+      const notification = await kv.get(`notification:${id}`)
+      if (notification) {
+        notifications.push(notification)
+      }
+    }
+
+    // Sort by date (newest first)
+    notifications.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+
+    return c.json({ notifications })
+  } catch (error) {
+    console.log('Error fetching notifications:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// Mark notification as read
+app.put('/make-server-a07d0a8e/notifications/:notificationId/read', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const notificationId = c.req.param('notificationId')
+    const notification = await kv.get(`notification:${notificationId}`)
+    
+    if (!notification) {
+      return c.json({ error: 'Notification not found' }, 404)
+    }
+
+    if (notification.userId !== user.id) {
+      return c.json({ error: 'Unauthorized' }, 403)
+    }
+
+    const updatedNotification = {
+      ...notification,
+      read: true,
+      readAt: new Date().toISOString()
+    }
+
+    await kv.set(`notification:${notificationId}`, updatedNotification)
+
+    return c.json({ success: true, notification: updatedNotification })
+  } catch (error) {
+    console.log('Error marking notification as read:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// Mark all notifications as read
+app.put('/make-server-a07d0a8e/notifications/read-all', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const notificationIds = await kv.get(`notifications:user:${user.id}`) || []
+    
+    for (const id of notificationIds) {
+      const notification = await kv.get(`notification:${id}`)
+      if (notification && !notification.read) {
+        await kv.set(`notification:${id}`, {
+          ...notification,
+          read: true,
+          readAt: new Date().toISOString()
+        })
+      }
+    }
+
+    return c.json({ success: true })
+  } catch (error) {
+    console.log('Error marking all notifications as read:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// ===== PASSWORD CHANGE ROUTE =====
+
+app.post('/make-server-a07d0a8e/change-password', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const { currentPassword, newPassword } = await c.req.json()
+
+    // Verify current password by attempting sign in
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: user.email!,
+      password: currentPassword
+    })
+
+    if (signInError) {
+      return c.json({ error: 'Senha atual incorreta' }, 400)
+    }
+
+    // Update password
+    const { error: updateError } = await supabase.auth.admin.updateUserById(
+      user.id,
+      { password: newPassword }
+    )
+
+    if (updateError) {
+      console.log('Error updating password:', updateError)
+      return c.json({ error: 'Erro ao atualizar senha' }, 500)
+    }
+
+    return c.json({ success: true, message: 'Senha alterada com sucesso' })
+  } catch (error) {
+    console.log('Error in change-password route:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// ===== 2FA ROUTES =====
+
+// Toggle 2FA
+app.post('/make-server-a07d0a8e/toggle-2fa', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const { enabled } = await c.req.json()
+
+    const userData = await kv.get(`user:${user.id}`)
+    const updatedUser = {
+      ...userData,
+      twoFactorEnabled: enabled,
+      twoFactorLastCheck: enabled ? new Date().toISOString() : null
+    }
+
+    await kv.set(`user:${user.id}`, updatedUser)
+
+    return c.json({ success: true, twoFactorEnabled: enabled })
+  } catch (error) {
+    console.log('Error toggling 2FA:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// Generate 2FA code
+app.post('/make-server-a07d0a8e/generate-2fa-code', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const code = Math.floor(100000 + Math.random() * 900000).toString()
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString() // 10 minutes
+
+    await kv.set(`2fa:${user.id}`, {
+      code,
+      expiresAt,
+      verified: false
+    })
+
+    // Send email with code
+    await sendVerificationEmail(user.email!, user.user_metadata?.name || user.email!, code)
+
+    return c.json({ success: true, message: 'Código enviado para seu email' })
+  } catch (error) {
+    console.log('Error generating 2FA code:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// Verify 2FA code
+app.post('/make-server-a07d0a8e/verify-2fa-code', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const { code } = await c.req.json()
+
+    const twoFaData = await kv.get(`2fa:${user.id}`)
+    
+    if (!twoFaData) {
+      return c.json({ error: 'Código não encontrado ou expirado' }, 400)
+    }
+
+    if (new Date(twoFaData.expiresAt) < new Date()) {
+      await kv.del(`2fa:${user.id}`)
+      return c.json({ error: 'Código expirado' }, 400)
+    }
+
+    if (twoFaData.code !== code) {
+      return c.json({ error: 'Código inválido' }, 400)
+    }
+
+    // Mark as verified and update last check
+    await kv.set(`2fa:${user.id}`, {
+      ...twoFaData,
+      verified: true
+    })
+
+    const userData = await kv.get(`user:${user.id}`)
+    await kv.set(`user:${user.id}`, {
+      ...userData,
+      twoFactorLastCheck: new Date().toISOString(),
+      lastLogin: new Date().toISOString()
+    })
+
+    return c.json({ success: true, message: 'Código verificado com sucesso' })
+  } catch (error) {
+    console.log('Error verifying 2FA code:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// Check if 2FA is required
+app.get('/make-server-a07d0a8e/check-2fa-required', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const userData = await kv.get(`user:${user.id}`)
+    
+    if (!userData?.twoFactorEnabled) {
+      return c.json({ required: false })
+    }
+
+    const lastCheck = userData.twoFactorLastCheck ? new Date(userData.twoFactorLastCheck) : null
+    const lastLogin = userData.lastLogin ? new Date(userData.lastLogin) : null
+    const now = new Date()
+
+    // Require 2FA if:
+    // 1. Never checked before
+    // 2. Last check was more than 30 days ago
+    // 3. Last login was more than 6 months ago (or never logged in)
+    
+    let required = false
+    
+    if (!lastCheck) {
+      required = true
+    } else {
+      const daysSinceLastCheck = (now.getTime() - lastCheck.getTime()) / (1000 * 60 * 60 * 24)
+      if (daysSinceLastCheck > 30) {
+        required = true
+      }
+    }
+
+    if (!required && lastLogin) {
+      const daysSinceLastLogin = (now.getTime() - lastLogin.getTime()) / (1000 * 60 * 60 * 24)
+      if (daysSinceLastLogin > 180) {
+        required = true
+      }
+    }
+
+    return c.json({ required })
+  } catch (error) {
+    console.log('Error checking 2FA requirement:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// ===== EMAIL HELPER FUNCTIONS =====
+
+async function sendVerificationEmail(email: string, name: string, code: string) {
+  // In a real implementation, this would use an email service like SendGrid, AWS SES, etc.
+  // For now, we'll log it (in production, you would actually send the email)
+  
+  const emailTemplate = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: 'Nunito', Arial, sans-serif;
+      background-color: #f5f5f5;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 40px auto;
+      background-color: #ffffff;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .header {
+      background-color: #46B0FD;
+      padding: 30px 20px;
+      text-align: center;
+    }
+    .header h1 {
+      color: #ffffff;
+      margin: 0;
+      font-family: 'Roboto Condensed', sans-serif;
+      font-size: 32px;
+    }
+    .content {
+      padding: 40px 30px;
+    }
+    .greeting {
+      color: #5C8599;
+      font-size: 20px;
+      margin-bottom: 20px;
+    }
+    .message {
+      color: #373737;
+      font-size: 16px;
+      line-height: 1.6;
+      margin-bottom: 30px;
+    }
+    .code-box {
+      background-color: #f0f9ff;
+      border: 3px dashed #15C3D6;
+      border-radius: 12px;
+      padding: 30px;
+      text-align: center;
+      margin: 30px 0;
+    }
+    .code {
+      font-size: 48px;
+      font-weight: bold;
+      color: #15C3D6;
+      letter-spacing: 8px;
+      font-family: 'Courier New', monospace;
+    }
+    .code-label {
+      color: #5C8599;
+      font-size: 14px;
+      margin-top: 10px;
+    }
+    .instructions {
+      background-color: #fff8e1;
+      border-left: 4px solid #eab308;
+      padding: 15px 20px;
+      margin: 20px 0;
+      border-radius: 4px;
+    }
+    .instructions p {
+      margin: 0;
+      color: #373737;
+      font-size: 14px;
+    }
+    .footer {
+      background-color: #f5f5f5;
+      padding: 30px;
+      text-align: center;
+      border-top: 1px solid #e0e0e0;
+    }
+    .footer p {
+      color: #9ca3af;
+      font-size: 12px;
+      margin: 5px 0;
+    }
+    .footer a {
+      color: #15C3D6;
+      text-decoration: none;
+    }
+    .emoji {
+      font-size: 24px;
+      margin-right: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🧩 Autazul</h1>
+    </div>
+    <div class="content">
+      <p class="greeting">
+        <span class="emoji">👋</span>Olá, ${name}!
+      </p>
+      <p class="message">
+        Recebemos uma solicitação de verificação de dois fatores para sua conta. 
+        Use o código abaixo para continuar com seu login de forma segura.
+      </p>
+      
+      <div class="code-box">
+        <div class="code">${code}</div>
+        <div class="code-label">Código de Verificação</div>
+      </div>
+      
+      <div class="instructions">
+        <p><strong>⏰ Importante:</strong> Este código expira em 10 minutos.</p>
+      </div>
+      
+      <p class="message">
+        Se você não solicitou este código, ignore este email ou entre em contato 
+        com nosso suporte imediatamente.
+      </p>
+    </div>
+    <div class="footer">
+      <p><strong>Autazul - Acompanhamento e Cuidado</strong></p>
+      <p>
+        <a href="mailto:suporte@autazul.com">Suporte</a> | 
+        <a href="#">Política de Privacidade</a> | 
+        <a href="#">Termos de Uso</a>
+      </p>
+      <p>© 2025 Autazul. Todos os direitos reservados.</p>
+    </div>
+  </div>
+</body>
+</html>
+  `
+  
+  console.log('=== EMAIL DE VERIFICAÇÃO 2FA ===')
+  console.log('Para:', email)
+  console.log('Nome:', name)
+  console.log('Código:', code)
+  console.log('Template:', emailTemplate)
+  console.log('================================')
+  
+  // TODO: Implement actual email sending with a service like SendGrid
+  // Example with SendGrid:
+  // const sgMail = require('@sendgrid/mail')
+  // sgMail.setApiKey(process.env.SENDGRID_API_KEY)
+  // await sgMail.send({
+  //   to: email,
+  //   from: 'noreply@autazul.com',
+  //   subject: 'Código de Verificação - Autazul',
+  //   html: emailTemplate
+  // })
+}
+
+async function sendEventNotificationEmail(email: string, name: string, eventDetails: any, childName: string) {
+  const emailTemplate = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: 'Nunito', Arial, sans-serif;
+      background-color: #f5f5f5;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 40px auto;
+      background-color: #ffffff;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .header {
+      background-color: #46B0FD;
+      padding: 30px 20px;
+      text-align: center;
+    }
+    .header h1 {
+      color: #ffffff;
+      margin: 0;
+      font-family: 'Roboto Condensed', sans-serif;
+      font-size: 32px;
+    }
+    .content {
+      padding: 40px 30px;
+    }
+    .greeting {
+      color: #5C8599;
+      font-size: 20px;
+      margin-bottom: 20px;
+    }
+    .event-box {
+      background-color: #f0f9ff;
+      border-left: 4px solid #15C3D6;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 4px;
+    }
+    .event-detail {
+      margin: 10px 0;
+      color: #373737;
+    }
+    .event-detail strong {
+      color: #5C8599;
+    }
+    .button {
+      display: inline-block;
+      background-color: #15C3D6;
+      color: #ffffff !important;
+      padding: 12px 30px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: bold;
+      margin: 20px 0;
+    }
+    .footer {
+      background-color: #f5f5f5;
+      padding: 30px;
+      text-align: center;
+      border-top: 1px solid #e0e0e0;
+    }
+    .footer p {
+      color: #9ca3af;
+      font-size: 12px;
+      margin: 5px 0;
+    }
+    .footer a {
+      color: #15C3D6;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🧩 Autazul</h1>
+    </div>
+    <div class="content">
+      <p class="greeting">Olá, ${name}!</p>
+      <p>Um novo evento foi registrado para <strong>${childName}</strong>:</p>
+      
+      <div class="event-box">
+        <div class="event-detail"><strong>Tipo:</strong> ${eventDetails.type}</div>
+        <div class="event-detail"><strong>Data:</strong> ${new Date(eventDetails.date).toLocaleDateString('pt-BR')}</div>
+        <div class="event-detail"><strong>Hora:</strong> ${eventDetails.time}</div>
+        <div class="event-detail"><strong>Gravidade:</strong> ${eventDetails.severity}</div>
+        <div class="event-detail"><strong>Descrição:</strong> ${eventDetails.description}</div>
+      </div>
+      
+      <center>
+        <a href="${Deno.env.get('SUPABASE_URL')}" class="button">Ver no Sistema</a>
+      </center>
+    </div>
+    <div class="footer">
+      <p><strong>Autazul - Acompanhamento e Cuidado</strong></p>
+      <p>
+        <a href="mailto:suporte@autazul.com">Suporte</a> | 
+        <a href="#">Política de Privacidade</a>
+      </p>
+      <p>© 2025 Autazul. Todos os direitos reservados.</p>
+    </div>
+  </div>
+</body>
+</html>
+  `
+  
+  console.log('=== EMAIL DE NOTIFICAÇÃO DE EVENTO ===')
+  console.log('Para:', email)
+  console.log('Nome:', name)
+  console.log('Evento:', eventDetails)
+  console.log('Template:', emailTemplate)
+  console.log('======================================')
+}
+
 Deno.serve(app.fetch)

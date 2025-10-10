@@ -7,7 +7,10 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Input } from './ui/input'
 import { Label } from './ui/label'
 import { Textarea } from './ui/textarea'
-import { Heart, LogOut, Plus, Calendar as CalendarIcon, Users, Baby } from 'lucide-react'
+import { LogOut, Plus, Calendar as CalendarIcon, Users, Baby, Shield } from 'lucide-react'
+import logoImage from 'figma:asset/4808b01f93843e68942dc5705a8c21d55435df1b.png'
+import { NotificationsPopover } from './NotificationsPopover'
+import { SecuritySettings } from './SecuritySettings'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { Badge } from './ui/badge'
 import { ScrollArea } from './ui/scroll-area'
@@ -41,6 +44,7 @@ export function ProfessionalDashboard() {
   const [children, setChildren] = useState<Child[]>([])
   const [events, setEvents] = useState<Event[]>([])
   const [addEventDialogOpen, setAddEventDialogOpen] = useState(false)
+  const [securitySettingsOpen, setSecuritySettingsOpen] = useState(false)
   const [loading, setLoading] = useState(false)
 
   // Form states
@@ -153,22 +157,33 @@ export function ProfessionalDashboard() {
       <header className="bg-white border-b shadow-sm" style={{ borderColor: '#15C3D6' }}>
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#46B0FD' }}>
-              <Heart className="w-5 h-5 text-white" fill="white" />
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden" style={{ backgroundColor: '#46B0FD' }}>
+              <img src={logoImage} alt="Autazul Logo" className="w-full h-full object-cover" />
             </div>
             <div>
               <h1 className="text-xl" style={{ fontFamily: "'Roboto Condensed', sans-serif", color: '#46B0FD' }}>Autazul - Profissional</h1>
               <p className="text-sm" style={{ color: '#5C8599' }}>Olá, {user?.name}</p>
             </div>
           </div>
-          <Button 
-            variant="ghost" 
-            onClick={signOut}
-            style={{ color: '#5C8599' }}
-          >
-            <LogOut className="w-4 h-4 mr-2" />
-            Sair
-          </Button>
+          <div className="flex items-center gap-2">
+            <NotificationsPopover />
+            <Button 
+              variant="ghost" 
+              size="icon"
+              onClick={() => setSecuritySettingsOpen(true)}
+              title="Configurações de Segurança"
+            >
+              <Shield className="w-5 h-5" style={{ color: '#5C8599' }} />
+            </Button>
+            <Button 
+              variant="ghost" 
+              onClick={signOut}
+              style={{ color: '#5C8599' }}
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Sair
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -469,6 +484,12 @@ export function ProfessionalDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Security Settings */}
+      <SecuritySettings
+        open={securitySettingsOpen}
+        onOpenChange={setSecuritySettingsOpen}
+      />
     </div>
   )
 }
