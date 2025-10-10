@@ -7,15 +7,21 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Input } from './ui/input'
 import { Label } from './ui/label'
 import { Textarea } from './ui/textarea'
-import { Heart, LogOut, Plus, Calendar as CalendarIcon } from 'lucide-react'
+import { Heart, LogOut, Plus, Calendar as CalendarIcon, Users, Baby } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { Badge } from './ui/badge'
 import { ScrollArea } from './ui/scroll-area'
+import { AppointmentsCard } from './AppointmentsCard'
+import { AdBanner } from './AdBanner'
+import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 
 interface Child {
   id: string
   name: string
   birthDate: string
+  photo?: string
+  school?: string
+  parentId: string
 }
 
 interface Event {
@@ -168,18 +174,37 @@ export function ProfessionalDashboard() {
                     </p>
                   </div>
                 ) : (
-                  <div className="space-y-2">
-                    {children.map((child) => (
-                      <Card key={child.id} className="bg-muted/50">
-                        <CardContent className="p-4">
-                          <p>{child.name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            Nascimento: {new Date(child.birthDate).toLocaleDateString('pt-BR')}
-                          </p>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
+                  <ScrollArea className="h-[400px]">
+                    <div className="space-y-3 pr-4">
+                      {children.map((child) => (
+                        <Card key={child.id} className="bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200">
+                          <CardContent className="p-4">
+                            <div className="flex items-start gap-3">
+                              <Avatar className="w-12 h-12">
+                                <AvatarImage src={child.photo} alt={child.name} />
+                                <AvatarFallback className="bg-purple-200 text-purple-700">
+                                  {child.name.charAt(0).toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1">
+                                <p>{child.name}</p>
+                                <div className="space-y-1 mt-1">
+                                  <p className="text-xs text-muted-foreground">
+                                    Nascimento: {new Date(child.birthDate).toLocaleDateString('pt-BR')}
+                                  </p>
+                                  {child.school && (
+                                    <p className="text-xs text-muted-foreground">
+                                      Escola: {child.school}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </ScrollArea>
                 )}
               </CardContent>
             </Card>

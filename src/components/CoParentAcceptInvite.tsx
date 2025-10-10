@@ -5,14 +5,14 @@ import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
-import { Heart, UserCheck, Loader2 } from 'lucide-react'
+import { Heart, UserCheck, Loader2, Users } from 'lucide-react'
 import { Alert, AlertDescription } from './ui/alert'
 
-interface ProfessionalAcceptInviteProps {
+interface CoParentAcceptInviteProps {
   token: string
 }
 
-export function ProfessionalAcceptInvite({ token }: ProfessionalAcceptInviteProps) {
+export function CoParentAcceptInvite({ token }: CoParentAcceptInviteProps) {
   const { signIn } = useAuth()
   const [invite, setInvite] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -30,14 +30,14 @@ export function ProfessionalAcceptInvite({ token }: ProfessionalAcceptInviteProp
 
   async function loadInvite() {
     try {
-      console.log('Loading invite with token:', token)
-      const { invite: inviteData } = await api.getInvite(token)
-      console.log('Invite loaded successfully:', inviteData)
+      console.log('Loading co-parent invite with token:', token)
+      const { invite: inviteData } = await api.getCoParentInvite(token)
+      console.log('Co-parent invite loaded successfully:', inviteData)
       setInvite(inviteData)
-      setEmail(inviteData.professionalEmail)
-      setName(inviteData.professionalName)
+      setEmail(inviteData.coParentEmail)
+      setName(inviteData.coParentName)
     } catch (error: any) {
-      console.error('Error loading invite - Full error:', error)
+      console.error('Error loading co-parent invite - Full error:', error)
       console.error('Error message:', error.message)
       setError(`Convite inválido ou expirado: ${error.message}`)
     } finally {
@@ -51,7 +51,7 @@ export function ProfessionalAcceptInvite({ token }: ProfessionalAcceptInviteProp
     setSubmitting(true)
 
     try {
-      await api.acceptInvite(token, email, password, name)
+      await api.acceptCoParentInvite(token, email, password, name)
       
       // Sign in after accepting
       await signIn(email, password)
@@ -114,9 +114,9 @@ export function ProfessionalAcceptInvite({ token }: ProfessionalAcceptInviteProp
               </div>
             </div>
             <div className="text-center">
-              <CardTitle className="text-3xl">Bem-vindo!</CardTitle>
+              <CardTitle className="text-3xl">Bem-vindo(a)!</CardTitle>
               <CardDescription>
-                Você foi vinculado com sucesso ao autista {invite.childName}
+                Você foi vinculado(a) com sucesso como co-responsável de {invite.childName}
               </CardDescription>
             </div>
           </CardHeader>
@@ -136,13 +136,13 @@ export function ProfessionalAcceptInvite({ token }: ProfessionalAcceptInviteProp
         <CardHeader className="space-y-4">
           <div className="flex justify-center">
             <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl flex items-center justify-center shadow-lg">
-              <Heart className="w-8 h-8 text-white" fill="white" />
+              <Users className="w-8 h-8 text-white" />
             </div>
           </div>
           <div className="text-center">
-            <CardTitle className="text-3xl">Convite Profissional</CardTitle>
+            <CardTitle className="text-3xl">Convite de Co-Responsável</CardTitle>
             <CardDescription>
-              Você foi convidado para acompanhar {invite.childName}
+              Você foi convidado(a) para ser co-responsável de {invite.childName}
             </CardDescription>
           </div>
         </CardHeader>
@@ -150,16 +150,12 @@ export function ProfessionalAcceptInvite({ token }: ProfessionalAcceptInviteProp
           <div className="bg-muted p-4 rounded-lg mb-6">
             <div className="space-y-2 text-sm">
               <div>
-                <span className="text-muted-foreground">Responsável:</span>
+                <span className="text-muted-foreground">Convidado por:</span>
                 <p>{invite.parentName}</p>
               </div>
               <div>
                 <span className="text-muted-foreground">Autista:</span>
                 <p>{invite.childName}</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Função:</span>
-                <p>{invite.professionalType}</p>
               </div>
             </div>
           </div>

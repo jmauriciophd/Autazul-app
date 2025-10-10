@@ -42,13 +42,17 @@ export class ApiClient {
       headers['Authorization'] = `Bearer ${publicAnonKey}`
     }
 
+    const fullUrl = `${BASE_URL}${endpoint}`
+    console.log(`API Request: ${options.method || 'GET'} ${fullUrl}`)
+
     try {
-      const response = await fetch(`${BASE_URL}${endpoint}`, {
+      const response = await fetch(fullUrl, {
         ...options,
         headers,
       })
 
       const data = await response.json()
+      console.log(`API Response for ${endpoint}:`, { status: response.status, data })
 
       if (!response.ok) {
         throw new Error(data.error || 'Request failed')
@@ -76,10 +80,10 @@ export class ApiClient {
   }
 
   // Children
-  async createChild(name: string, birthDate: string) {
+  async createChild(name: string, birthDate: string, photo?: string, school?: string) {
     return this.request<{ success: boolean; child: any }>('/children', {
       method: 'POST',
-      body: JSON.stringify({ name, birthDate }),
+      body: JSON.stringify({ name, birthDate, photo, school }),
     })
   }
 
@@ -166,6 +170,96 @@ export class ApiClient {
 
   async getEvent(eventId: string) {
     return this.request<{ event: any }>(`/events/${eventId}`)
+  }
+
+  // Update child
+  async updateChild(childId: string, updateData: any) {
+    return this.request<{ success: boolean; child: any }>(`/children/${childId}`, {
+      method: 'PUT',
+      body: JSON.stringify(updateData),
+    })
+  }
+
+  // Co-parents
+  async createCoParentInvite(childId: string, coParentEmail: string, coParentName: string) {
+    return this.request<{ success: boolean; inviteUrl: string; token: string }>(
+      `/children/${childId}/coparents`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ coParentEmail, coParentName }),
+      }
+    )
+  }
+
+  async getCoParentInvite(token: string) {
+    return this.request<{ invite: any }>(`/coparents/invite/${token}`)
+  }
+
+  async acceptCoParentInvite(token: string, email: string, password: string, name: string) {
+    return this.request<{ success: boolean; coParentId: string }>(
+      `/coparents/accept/${token}`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ email, password, name }),
+      }
+    )
+  }
+
+  async getCoParentsForChild(childId: string) {
+    return this.request<{ coParents: any[] }>(`/children/${childId}/coparents`)
+  }
+
+  // Appointments
+  async createAppointment(appointmentData: {
+    childId: string
+    professionalId: string
+    date: string
+    time: string
+    notes?: string
+    requestedBy?: string
+  }) {
+    return this.request<{ success: boolean; appointment: any }>('/appointments', {
+      method: 'POST',
+      body: JSON.stringify(appointmentData),
+    })
+  }
+
+  async getAppointmentsForProfessional() {
+    return this.request<{ appointments: any[] }>('/appointments/professional')
+  }
+
+  async getAppointmentsForChild(childId: string) {
+    return this.request<{ appointments: any[] }>(`/appointments/child/${childId}`)
+  }
+
+  async updateAppointment(appointmentId: string, status: string, notes?: string) {
+    return this.request<{ success: boolean; appointment: any }>(
+      `/appointments/${appointmentId}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify({ status, notes }),
+      }
+    )
+  }
+
+  // Admin
+  async getAdminSettings() {
+    return this.request<{ settings: any }>('/admin/settings')
+  }
+
+  async updateAdminSettings(settings: {
+    googleAdsCode?: string
+    bannerUrl?: string
+    bannerLink?: string
+  }) {
+    return this.request<{ success: boolean; settings: any }>('/admin/settings', {
+      method: 'PUT',
+      body: JSON.stringify(settings),
+    })
+  }
+
+  async getPublicSettings() {
+    return this.request<{ settings: any }>('/admin/public-settings')
   }
 }
 

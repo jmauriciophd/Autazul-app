@@ -91,13 +91,15 @@ app.post('/make-server-a07d0a8e/children', async (c) => {
       return c.json({ error: 'Unauthorized' }, 401)
     }
 
-    const { name, birthDate } = await c.req.json()
+    const { name, birthDate, photo, school } = await c.req.json()
     const childId = generateId()
 
     const child = {
       id: childId,
       name,
       birthDate,
+      photo: photo || null,
+      school: school || null,
       parentId: user.id,
       createdAt: new Date().toISOString()
     }
@@ -207,7 +209,21 @@ app.post('/make-server-a07d0a8e/professionals/invite', async (c) => {
 
     await kv.set(`invite:${token}`, invite)
 
-    const inviteUrl = `${c.req.url.split('/make-server')[0]}/professional/accept/${token}`
+    // Get the origin from the request headers (where the frontend is hosted)
+    const origin = c.req.header('Origin') || c.req.header('Referer')?.split('/').slice(0, 3).join('/')
+    console.log('Creating invite - Origin:', origin, 'Referer:', c.req.header('Referer'))
+    
+    // Construct the invite URL
+    let inviteUrl: string
+    if (origin) {
+      // If we have origin, use hash routing for compatibility
+      inviteUrl = `${origin}/#/professional/accept/${token}`
+    } else {
+      // Fallback to relative path
+      inviteUrl = `#/professional/accept/${token}`
+    }
+    
+    console.log('Generated invite URL:', inviteUrl)
 
     return c.json({ success: true, inviteUrl, token })
   } catch (error) {
@@ -579,6 +595,456 @@ app.get('/make-server-a07d0a8e/events/:eventId', async (c) => {
     })
   } catch (error) {
     console.log('Error fetching event:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// Update child
+app.put('/make-server-a07d0a8e/children/:childId', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const childId = c.req.param('childId')
+    const updateData = await c.req.json()
+    
+    const child = await kv.get(`child:${childId}`)
+    if (!child) {
+      return c.json({ error: 'Child not found' }, 404)
+    }
+
+    // Check if user is parent or co-parent
+    const userData = await kv.get(`user:${user.id}`)
+    const coParents = await kv.get(`coparents:child:${childId}`) || []
+    
+    if (child.parentId !== user.id && !coParents.includes(user.id)) {
+      return c.json({ error: 'Unauthorized - Not a parent or co-parent of this child' }, 403)
+    }
+
+    const updatedChild = {
+      ...child,
+      ...updateData,
+      id: childId,
+      parentId: child.parentId,
+      updatedAt: new Date().toISOString()
+    }
+
+    await kv.set(`child:${childId}`, updatedChild)
+
+    return c.json({ success: true, child: updatedChild })
+  } catch (error) {
+    console.log('Error updating child:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// ===== CO-PARENT ROUTES =====
+
+// Add co-parent to child
+app.post('/make-server-a07d0a8e/children/:childId/coparents', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const childId = c.req.param('childId')
+    const { coParentEmail, coParentName } = await c.req.json()
+    
+    const child = await kv.get(`child:${childId}`)
+    if (!child || child.parentId !== user.id) {
+      return c.json({ error: 'Unauthorized - Not the primary parent' }, 403)
+    }
+
+    // Create invite for co-parent
+    const token = generateToken()
+    const invite = {
+      token,
+      type: 'coparent',
+      childId,
+      parentId: user.id,
+      coParentEmail,
+      coParentName,
+      createdAt: new Date().toISOString()
+    }
+
+    await kv.set(`invite:coparent:${token}`, invite)
+
+    const origin = c.req.header('Origin') || c.req.header('Referer')?.split('/').slice(0, 3).join('/')
+    const inviteUrl = origin ? `${origin}/#/coparent/accept/${token}` : `#/coparent/accept/${token}`
+
+    return c.json({ success: true, inviteUrl, token })
+  } catch (error) {
+    console.log('Error creating co-parent invite:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// Get co-parent invite
+app.get('/make-server-a07d0a8e/coparents/invite/:token', async (c) => {
+  try {
+    const token = c.req.param('token')
+    const invite = await kv.get(`invite:coparent:${token}`)
+    
+    if (!invite) {
+      return c.json({ error: 'Invalid or expired invite' }, 404)
+    }
+
+    const child = await kv.get(`child:${invite.childId}`)
+    const parent = await kv.get(`user:${invite.parentId}`)
+
+    return c.json({ 
+      invite: {
+        ...invite,
+        childName: child?.name,
+        parentName: parent?.name
+      }
+    })
+  } catch (error) {
+    console.log('Error fetching co-parent invite:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// Accept co-parent invite
+app.post('/make-server-a07d0a8e/coparents/accept/:token', async (c) => {
+  try {
+    const token = c.req.param('token')
+    const { email, password, name } = await c.req.json()
+
+    const invite = await kv.get(`invite:coparent:${token}`)
+    if (!invite) {
+      return c.json({ error: 'Invalid or expired invite' }, 404)
+    }
+
+    // Create co-parent user
+    const { data, error } = await supabase.auth.admin.createUser({
+      email,
+      password,
+      user_metadata: { name, role: 'parent' },
+      email_confirm: true
+    })
+
+    if (error) {
+      console.log('Error creating co-parent user:', error)
+      return c.json({ error: error.message }, 400)
+    }
+
+    const coParentId = data.user.id
+
+    // Store co-parent user
+    await kv.set(`user:${coParentId}`, {
+      id: coParentId,
+      email,
+      name,
+      role: 'parent'
+    })
+
+    // Add to child's co-parents list
+    const coParentsKey = `coparents:child:${invite.childId}`
+    const existingCoParents = await kv.get(coParentsKey) || []
+    await kv.set(coParentsKey, [...existingCoParents, coParentId])
+
+    // Add child to co-parent's children list
+    const childrenKey = `children:parent:${coParentId}`
+    const existingChildren = await kv.get(childrenKey) || []
+    await kv.set(childrenKey, [...existingChildren, invite.childId])
+
+    // Delete the invite
+    await kv.del(`invite:coparent:${token}`)
+
+    return c.json({ success: true, coParentId })
+  } catch (error) {
+    console.log('Error accepting co-parent invite:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// Get co-parents for child
+app.get('/make-server-a07d0a8e/children/:childId/coparents', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const childId = c.req.param('childId')
+    const child = await kv.get(`child:${childId}`)
+    
+    if (!child) {
+      return c.json({ error: 'Child not found' }, 404)
+    }
+
+    const coParentIds = await kv.get(`coparents:child:${childId}`) || []
+    const coParents = []
+    
+    for (const cpId of coParentIds) {
+      const cpUser = await kv.get(`user:${cpId}`)
+      if (cpUser) {
+        coParents.push({
+          id: cpId,
+          name: cpUser.name,
+          email: cpUser.email
+        })
+      }
+    }
+
+    return c.json({ coParents })
+  } catch (error) {
+    console.log('Error fetching co-parents:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// ===== APPOINTMENT ROUTES =====
+
+// Create appointment
+app.post('/make-server-a07d0a8e/appointments', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const { childId, professionalId, date, time, notes, requestedBy } = await c.req.json()
+    
+    const appointmentId = generateId()
+    const appointment = {
+      id: appointmentId,
+      childId,
+      professionalId,
+      date,
+      time,
+      notes: notes || '',
+      status: 'pending',
+      requestedBy: requestedBy || user.id,
+      createdAt: new Date().toISOString()
+    }
+
+    await kv.set(`appointment:${appointmentId}`, appointment)
+
+    // Add to child's appointments
+    const childAppointmentsKey = `appointments:child:${childId}`
+    const existingChildAppts = await kv.get(childAppointmentsKey) || []
+    await kv.set(childAppointmentsKey, [...existingChildAppts, appointmentId])
+
+    // Add to professional's appointments
+    const profAppointmentsKey = `appointments:professional:${professionalId}`
+    const existingProfAppts = await kv.get(profAppointmentsKey) || []
+    await kv.set(profAppointmentsKey, [...existingProfAppts, appointmentId])
+
+    return c.json({ success: true, appointment })
+  } catch (error) {
+    console.log('Error creating appointment:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// Get appointments for professional
+app.get('/make-server-a07d0a8e/appointments/professional', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const appointmentIds = await kv.get(`appointments:professional:${user.id}`) || []
+    const appointments = []
+    
+    for (const id of appointmentIds) {
+      const appointment = await kv.get(`appointment:${id}`)
+      if (appointment) {
+        const child = await kv.get(`child:${appointment.childId}`)
+        const requester = await kv.get(`user:${appointment.requestedBy}`)
+        appointments.push({
+          ...appointment,
+          childName: child?.name || 'Unknown',
+          requesterName: requester?.name || 'Unknown'
+        })
+      }
+    }
+
+    // Sort by date and time
+    appointments.sort((a, b) => {
+      const dateA = new Date(`${a.date} ${a.time}`)
+      const dateB = new Date(`${b.date} ${b.time}`)
+      return dateA.getTime() - dateB.getTime()
+    })
+
+    return c.json({ appointments })
+  } catch (error) {
+    console.log('Error fetching appointments:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// Get appointments for child
+app.get('/make-server-a07d0a8e/appointments/child/:childId', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const childId = c.req.param('childId')
+    const appointmentIds = await kv.get(`appointments:child:${childId}`) || []
+    const appointments = []
+    
+    for (const id of appointmentIds) {
+      const appointment = await kv.get(`appointment:${id}`)
+      if (appointment) {
+        const professional = await kv.get(`user:${appointment.professionalId}`)
+        const profLink = await kv.get(`professional:${appointment.professionalId}:child:${childId}`)
+        appointments.push({
+          ...appointment,
+          professionalName: professional?.name || 'Unknown',
+          professionalType: profLink?.professionalType || 'Professional'
+        })
+      }
+    }
+
+    appointments.sort((a, b) => {
+      const dateA = new Date(`${a.date} ${a.time}`)
+      const dateB = new Date(`${b.date} ${b.time}`)
+      return dateA.getTime() - dateB.getTime()
+    })
+
+    return c.json({ appointments })
+  } catch (error) {
+    console.log('Error fetching appointments:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// Update appointment status
+app.put('/make-server-a07d0a8e/appointments/:appointmentId', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const appointmentId = c.req.param('appointmentId')
+    const { status, notes } = await c.req.json()
+    
+    const appointment = await kv.get(`appointment:${appointmentId}`)
+    if (!appointment) {
+      return c.json({ error: 'Appointment not found' }, 404)
+    }
+
+    const updatedAppointment = {
+      ...appointment,
+      status: status || appointment.status,
+      notes: notes !== undefined ? notes : appointment.notes,
+      updatedAt: new Date().toISOString()
+    }
+
+    await kv.set(`appointment:${appointmentId}`, updatedAppointment)
+
+    return c.json({ success: true, appointment: updatedAppointment })
+  } catch (error) {
+    console.log('Error updating appointment:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// ===== ADMIN ROUTES =====
+
+const ADMIN_EMAILS = ['jmauriciophd@gmail.com', 'webservicesbsb@gmail.com']
+
+// Check if user is admin
+function isAdmin(email: string): boolean {
+  return ADMIN_EMAILS.includes(email.toLowerCase())
+}
+
+// Get admin settings
+app.get('/make-server-a07d0a8e/admin/settings', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const userData = await kv.get(`user:${user.id}`)
+    if (!isAdmin(userData?.email)) {
+      return c.json({ error: 'Forbidden - Admin access required' }, 403)
+    }
+
+    const settings = await kv.get('admin:settings') || {
+      googleAdsCode: '',
+      bannerUrl: '',
+      bannerLink: ''
+    }
+
+    return c.json({ settings })
+  } catch (error) {
+    console.log('Error fetching admin settings:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// Update admin settings
+app.put('/make-server-a07d0a8e/admin/settings', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const userData = await kv.get(`user:${user.id}`)
+    if (!isAdmin(userData?.email)) {
+      return c.json({ error: 'Forbidden - Admin access required' }, 403)
+    }
+
+    const { googleAdsCode, bannerUrl, bannerLink } = await c.req.json()
+
+    const settings = {
+      googleAdsCode: googleAdsCode || '',
+      bannerUrl: bannerUrl || '',
+      bannerLink: bannerLink || '',
+      updatedAt: new Date().toISOString(),
+      updatedBy: userData.email
+    }
+
+    await kv.set('admin:settings', settings)
+
+    return c.json({ success: true, settings })
+  } catch (error) {
+    console.log('Error updating admin settings:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// Get public admin settings (for non-admin users to view ads)
+app.get('/make-server-a07d0a8e/admin/public-settings', async (c) => {
+  try {
+    const settings = await kv.get('admin:settings') || {
+      googleAdsCode: '',
+      bannerUrl: '',
+      bannerLink: ''
+    }
+
+    // Only return public-facing settings
+    return c.json({ 
+      settings: {
+        googleAdsCode: settings.googleAdsCode,
+        bannerUrl: settings.bannerUrl,
+        bannerLink: settings.bannerLink
+      }
+    })
+  } catch (error) {
+    console.log('Error fetching public settings:', error)
     return c.json({ error: String(error) }, 500)
   }
 })

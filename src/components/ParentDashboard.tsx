@@ -9,7 +9,7 @@ import { Input } from './ui/input'
 import { Label } from './ui/label'
 import { Textarea } from './ui/textarea'
 import { Calendar } from './ui/calendar'
-import { Heart, LogOut, Plus, UserPlus, Users, Trash2, Copy, Check, Calendar as CalendarIcon } from 'lucide-react'
+import { Heart, LogOut, Plus, UserPlus, Users, Trash2, Copy, Check, Calendar as CalendarIcon, Edit, Settings } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
 import { Badge } from './ui/badge'
@@ -17,11 +17,14 @@ import { ScrollArea } from './ui/scroll-area'
 import { Separator } from './ui/separator'
 import { EventStats } from './EventStats'
 import { EventCard } from './EventCard'
+import { ChildProfileEditor } from './ChildProfileEditor'
 
 interface Child {
   id: string
   name: string
   birthDate: string
+  photo?: string
+  school?: string
   parentId: string
 }
 
@@ -64,12 +67,15 @@ export function ParentDashboard() {
   const [addChildDialogOpen, setAddChildDialogOpen] = useState(false)
   const [addProfessionalDialogOpen, setAddProfessionalDialogOpen] = useState(false)
   const [addEventDialogOpen, setAddEventDialogOpen] = useState(false)
-  const [inviteUrlDialog, setInviteUrlDialog] = useState<{ open: boolean; url: string }>({ open: false, url: '' })
+  const [editChildDialogOpen, setEditChildDialogOpen] = useState(false)
+  const [inviteUrlDialog, setInviteUrlDialog] = useState<{ open: boolean; url: string; token: string }>({ open: false, url: '', token: '' })
   const [copied, setCopied] = useState(false)
 
   // Form states
   const [childName, setChildName] = useState('')
   const [childBirthDate, setChildBirthDate] = useState('')
+  const [childPhoto, setChildPhoto] = useState('')
+  const [childSchool, setChildSchool] = useState('')
   const [professionalName, setProfessionalName] = useState('')
   const [professionalEmail, setProfessionalEmail] = useState('')
   const [professionalType, setProfessionalType] = useState('')
@@ -130,11 +136,13 @@ export function ParentDashboard() {
     e.preventDefault()
     setLoading(true)
     try {
-      await api.createChild(childName, childBirthDate)
+      await api.createChild(childName, childBirthDate, childPhoto, childSchool)
       await loadChildren()
       setAddChildDialogOpen(false)
       setChildName('')
       setChildBirthDate('')
+      setChildPhoto('')
+      setChildSchool('')
       notify.success(messages.child.addSuccess, `${childName} foi adicionado ao sistema`)
     } catch (error) {
       console.error('Error adding child:', error)
@@ -149,13 +157,13 @@ export function ParentDashboard() {
     if (!selectedChild) return
     setLoading(true)
     try {
-      const { inviteUrl } = await api.createProfessionalInvite(
+      const { inviteUrl, token } = await api.createProfessionalInvite(
         selectedChild.id,
         professionalName,
         professionalEmail,
         professionalType
       )
-      setInviteUrlDialog({ open: true, url: inviteUrl })
+      setInviteUrlDialog({ open: true, url: inviteUrl, token })
       await loadProfessionals()
       setAddProfessionalDialogOpen(false)
       setProfessionalName('')
@@ -297,6 +305,16 @@ export function ParentDashboard() {
                     </SelectContent>
                   </Select>
                 )}
+                {selectedChild && (
+                  <Button 
+                    className="w-full" 
+                    variant="secondary"
+                    onClick={() => setEditChildDialogOpen(true)}
+                  >
+                    <Edit className="w-4 h-4 mr-2" />
+                    Editar Perfil
+                  </Button>
+                )}
                 <Dialog open={addChildDialogOpen} onOpenChange={setAddChildDialogOpen}>
                   <DialogTrigger asChild>
                     <Button className="w-full" variant="outline">
@@ -330,6 +348,26 @@ export function ParentDashboard() {
                           value={childBirthDate}
                           onChange={(e) => setChildBirthDate(e.target.value)}
                           required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="childPhoto">Foto (URL) - Opcional</Label>
+                        <Input
+                          id="childPhoto"
+                          type="url"
+                          value={childPhoto}
+                          onChange={(e) => setChildPhoto(e.target.value)}
+                          placeholder="https://exemplo.com/foto.jpg"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="childSchool">Escola - Opcional</Label>
+                        <Input
+                          id="childSchool"
+                          type="text"
+                          value={childSchool}
+                          onChange={(e) => setChildSchool(e.target.value)}
+                          placeholder="Nome da escola"
                         />
                       </div>
                       <Button type="submit" className="w-full" disabled={loading}>
@@ -698,7 +736,7 @@ export function ParentDashboard() {
 
       {/* Invite URL Dialog */}
       <Dialog open={inviteUrlDialog.open} onOpenChange={(open) => setInviteUrlDialog({ ...inviteUrlDialog, open })}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Link de Convite Gerado</DialogTitle>
             <DialogDescription>
@@ -706,28 +744,60 @@ export function ParentDashboard() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="p-4 bg-muted rounded-lg break-all text-sm">
-              {inviteUrlDialog.url}
+            <div>
+              <Label className="text-sm mb-2 block">Link de Convite:</Label>
+              <div className="p-3 bg-muted rounded-lg break-all text-sm">
+                {inviteUrlDialog.url}
+              </div>
+              <Button
+                onClick={() => copyToClipboard(inviteUrlDialog.url)}
+                className="w-full mt-2"
+                variant="outline"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-4 h-4 mr-2" />
+                    Link Copiado!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4 mr-2" />
+                    Copiar Link Completo
+                  </>
+                )}
+              </Button>
             </div>
-            <Button
-              onClick={() => copyToClipboard(inviteUrlDialog.url)}
-              className="w-full"
-            >
-              {copied ? (
-                <>
-                  <Check className="w-4 h-4 mr-2" />
-                  Copiado!
-                </>
-              ) : (
-                <>
-                  <Copy className="w-4 h-4 mr-2" />
-                  Copiar Link
-                </>
-              )}
-            </Button>
+            <Separator />
+            <div>
+              <Label className="text-sm mb-2 block">Código do Convite:</Label>
+              <div className="p-3 bg-blue-50 border-2 border-blue-200 rounded-lg break-all text-sm font-mono">
+                {inviteUrlDialog.token}
+              </div>
+              <Button
+                onClick={() => copyToClipboard(inviteUrlDialog.token)}
+                className="w-full mt-2"
+                variant="outline"
+              >
+                <Copy className="w-4 h-4 mr-2" />
+                Copiar Código
+              </Button>
+              <p className="text-xs text-muted-foreground mt-2">
+                O profissional pode acessar diretamente o link ou inserir este código no sistema
+              </p>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Child Profile Editor */}
+      {selectedChild && (
+        <ChildProfileEditor
+          child={selectedChild}
+          open={editChildDialogOpen}
+          onOpenChange={setEditChildDialogOpen}
+          onUpdate={loadChildren}
+        />
+      )}
     </div>
   )
 }
