@@ -26,28 +26,17 @@ function generateToken() {
 
 // ===== AUTHENTICATION ROUTES =====
 
-<<<<<<< HEAD
 // Signup - Always create as parent (base profile)
 app.post('/make-server-a07d0a8e/signup', async (c) => {
   try {
     const { email, password, name } = await c.req.json()
     // Always create as 'parent' - this is the base profile
     const role = 'parent'
-=======
-// Signup for parents
-app.post('/make-server-a07d0a8e/signup', async (c) => {
-  try {
-    const { email, password, name } = await c.req.json()
->>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96
 
     const { data, error } = await supabase.auth.admin.createUser({
       email,
       password,
-<<<<<<< HEAD
       user_metadata: { name, role },
-=======
-      user_metadata: { name, role: 'parent' },
->>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96
       email_confirm: true // Automatically confirm since email server isn't configured
     })
 
@@ -56,21 +45,13 @@ app.post('/make-server-a07d0a8e/signup', async (c) => {
       return c.json({ error: error.message }, 400)
     }
 
-<<<<<<< HEAD
     // Store user in KV with base role 'parent'
-=======
-    // Store user in KV
->>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96
     const userId = data.user.id
     await kv.set(`user:${userId}`, {
       id: userId,
       email,
       name,
-<<<<<<< HEAD
       role
-=======
-      role: 'parent'
->>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96
     })
 
     return c.json({ success: true, userId })
@@ -391,10 +372,7 @@ app.get('/make-server-a07d0a8e/children/:childId/professionals', async (c) => {
     const professionalIds = await kv.get(`professionals:child:${childId}`) || []
     const professionals = []
     
-<<<<<<< HEAD
     // Get accepted professionals
-=======
->>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96
     for (const profId of professionalIds) {
       const profUser = await kv.get(`user:${profId}`)
       const profLink = await kv.get(`professional:${profId}:child:${childId}`)
@@ -404,7 +382,6 @@ app.get('/make-server-a07d0a8e/children/:childId/professionals', async (c) => {
           name: profUser.name,
           email: profUser.email,
           type: profLink.professionalType,
-<<<<<<< HEAD
           linkedAt: profLink.createdAt,
           status: 'accepted'
         })
@@ -424,9 +401,6 @@ app.get('/make-server-a07d0a8e/children/:childId/professionals', async (c) => {
           linkedAt: invite.createdAt,
           status: 'pending',
           inviteToken: invite.token
-=======
-          linkedAt: profLink.createdAt
->>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96
         })
       }
     }

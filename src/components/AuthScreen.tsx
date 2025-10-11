@@ -4,13 +4,17 @@ import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
-<<<<<<< HEAD
 import { RadioGroup, RadioGroupItem } from './ui/radio-group'
 import { Users, Stethoscope } from 'lucide-react'
-=======
->>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96
-import logoImage from 'figma:asset/4808b01f93843e68942dc5705a8c21d55435df1b.png'
-import backgroundImage from 'figma:asset/e42e586c023e98f242ba36ab0d21a55a8ab1b18c.png'
+
+// Logo SVG inline para produção
+const LogoSVG = () => (
+  <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="40" height="40" rx="8" fill="#46B0FD"/>
+    <path d="M20 10C14.48 10 10 14.48 10 20C10 25.52 14.48 30 20 30C25.52 30 30 25.52 30 20C30 14.48 25.52 10 20 10ZM20 27C16.13 27 13 23.87 13 20C13 16.13 16.13 13 20 13C23.87 13 27 16.13 27 20C27 23.87 23.87 27 20 27Z" fill="white"/>
+    <circle cx="20" cy="20" r="4" fill="white"/>
+  </svg>
+)
 
 export function AuthScreen() {
   const { signIn, signUp } = useAuth()
@@ -18,16 +22,11 @@ export function AuthScreen() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
-<<<<<<< HEAD
   const [profileType, setProfileType] = useState<'parent' | 'professional'>('parent')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [hasChildren, setHasChildren] = useState(false)
   const [checkingProfile, setCheckingProfile] = useState(false)
-=======
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
->>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -36,11 +35,8 @@ export function AuthScreen() {
 
     try {
       if (isLogin) {
-<<<<<<< HEAD
         // Salvar perfil selecionado antes do login
         localStorage.setItem('selectedProfile', profileType)
-=======
->>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96
         await signIn(email, password)
       } else {
         if (!name) {
@@ -48,12 +44,8 @@ export function AuthScreen() {
           setLoading(false)
           return
         }
-<<<<<<< HEAD
         // Sempre criar como parent no signup
         await signUp(email, password, name, 'parent')
-=======
-        await signUp(email, password, name)
->>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96
       }
     } catch (err: any) {
       setError(err.message || 'Ocorreu um erro. Tente novamente.')
@@ -62,7 +54,6 @@ export function AuthScreen() {
     }
   }
 
-<<<<<<< HEAD
   // Verificar se usuário tem crianças cadastradas (só no login)
   async function checkUserHasChildren(userEmail: string) {
     try {
@@ -78,13 +69,11 @@ export function AuthScreen() {
     }
   }
 
-=======
->>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96
   return (
     <div 
       className="min-h-screen flex items-center justify-center p-4 relative"
       style={{
-        backgroundImage: `url(${backgroundImage})`,
+        background: 'linear-gradient(135deg, #EBF2F5 0%, #D3E8F0 100%)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat'
@@ -96,11 +85,14 @@ export function AuthScreen() {
       <Card className="w-full max-w-md relative z-10 shadow-2xl border-2" style={{ borderColor: '#15C3D6' }}>
         <CardHeader className="space-y-6 pb-8">
           <div className="flex justify-center">
+            <div className="w-20 h-20 flex items-center justify-center">
+              <LogoSVG /></div>
+            {/* Logo comentado - usando SVG inline
             <img 
               src={logoImage} 
               alt="Autazul Logo" 
               className="w-28 h-28 object-contain"
-            />
+            /> */}
           </div>
           <div className="text-center">
             <h1 className="mb-2" style={{ 
@@ -115,11 +107,7 @@ export function AuthScreen() {
             <CardDescription className="text-base" style={{ color: '#5C8599' }}>
               {isLogin
                 ? 'Entre na sua conta'
-<<<<<<< HEAD
                 : 'Crie sua conta como Pai/Responsável'}
-=======
-                : 'Crie sua conta como responsável'}
->>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96
             </CardDescription>
           </div>
         </CardHeader>
@@ -140,7 +128,6 @@ export function AuthScreen() {
                 />
               </div>
             )}
-<<<<<<< HEAD
             
             {isLogin && (
               <div className="space-y-3">
@@ -181,8 +168,6 @@ export function AuthScreen() {
                 </p>
               </div>
             )}
-=======
->>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96
             <div className="space-y-2">
               <Label htmlFor="email" style={{ color: '#373737' }}>Email</Label>
               <Input

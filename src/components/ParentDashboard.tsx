@@ -9,19 +9,20 @@ import { Input } from './ui/input'
 import { Label } from './ui/label'
 import { Textarea } from './ui/textarea'
 import { Calendar } from './ui/calendar'
-<<<<<<< HEAD
 import { LogOut, Plus, UserPlus, Users, Trash2, Copy, Check, Calendar as CalendarIcon, Edit, Settings, Shield, Crown } from 'lucide-react'
-import logoImage from 'figma:asset/4808b01f93843e68942dc5705a8c21d55435df1b.png'
+
+// Logo SVG inline para produção
+const LogoSVG = () => (
+  <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="40" height="40" rx="8" fill="#46B0FD"/>
+    <path d="M20 10C14.48 10 10 14.48 10 20C10 25.52 14.48 30 20 30C25.52 30 30 25.52 30 20C30 14.48 25.52 10 20 10ZM20 27C16.13 27 13 23.87 13 20C13 16.13 16.13 13 20 13C23.87 13 27 16.13 27 20C27 23.87 23.87 27 20 27Z" fill="white"/>
+    <circle cx="20" cy="20" r="4" fill="white"/>
+  </svg>
+)
 import { NotificationsPopover } from './NotificationsPopover'
 import { SecuritySettings } from './SecuritySettings'
 import { AdminPanel } from './AdminPanel'
 import { ProfileSwitcher } from './ProfileSwitcher'
-=======
-import { LogOut, Plus, UserPlus, Users, Trash2, Copy, Check, Calendar as CalendarIcon, Edit, Settings, Shield } from 'lucide-react'
-import logoImage from 'figma:asset/4808b01f93843e68942dc5705a8c21d55435df1b.png'
-import { NotificationsPopover } from './NotificationsPopover'
-import { SecuritySettings } from './SecuritySettings'
->>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
 import { Badge } from './ui/badge'
@@ -46,11 +47,8 @@ interface Professional {
   email: string
   type: string
   linkedAt: string
-<<<<<<< HEAD
   status?: 'pending' | 'accepted' | 'rejected'
   inviteToken?: string
-=======
->>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96
 }
 
 interface Event {
@@ -86,10 +84,7 @@ export function ParentDashboard() {
   const [addEventDialogOpen, setAddEventDialogOpen] = useState(false)
   const [editChildDialogOpen, setEditChildDialogOpen] = useState(false)
   const [securitySettingsOpen, setSecuritySettingsOpen] = useState(false)
-<<<<<<< HEAD
   const [showAdminPanel, setShowAdminPanel] = useState(false)
-=======
->>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96
   const [inviteUrlDialog, setInviteUrlDialog] = useState<{ open: boolean; url: string; token: string }>({ open: false, url: '', token: '' })
   const [copied, setCopied] = useState(false)
 
@@ -285,7 +280,6 @@ export function ParentDashboard() {
     'Alta': '#dc2626',
   }
 
-<<<<<<< HEAD
   // Show admin panel if user is admin and flag is set
   if (showAdminPanel && user?.isAdmin) {
     return (
@@ -294,7 +288,7 @@ export function ParentDashboard() {
           <div className="container mx-auto px-4 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden" style={{ backgroundColor: '#46B0FD' }}>
-                <img src={logoImage} alt="Autazul Logo" className="w-full h-full object-cover" />
+                <LogoSVG />
               </div>
               <div>
                 <h1 className="text-xl" style={{ fontFamily: "'Roboto Condensed', sans-serif", color: '#ffffff' }}>Autazul - Admin</h1>
@@ -316,8 +310,6 @@ export function ParentDashboard() {
     )
   }
 
-=======
->>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#f5f5f5' }}>
       {/* Header */}
@@ -325,7 +317,7 @@ export function ParentDashboard() {
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden" style={{ backgroundColor: '#46B0FD' }}>
-              <img src={logoImage} alt="Autazul Logo" className="w-full h-full object-cover" />
+              <LogoSVG />
             </div>
             <div>
               <h1 className="text-xl" style={{ fontFamily: "'Roboto Condensed', sans-serif", color: '#46B0FD' }}>Autazul</h1>
@@ -333,10 +325,7 @@ export function ParentDashboard() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-<<<<<<< HEAD
             <ProfileSwitcher />
-=======
->>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96
             <NotificationsPopover />
             <Button 
               variant="ghost" 
@@ -346,7 +335,6 @@ export function ParentDashboard() {
             >
               <Shield className="w-5 h-5" style={{ color: '#5C8599' }} />
             </Button>
-<<<<<<< HEAD
             {user?.isAdmin && (
               <Button 
                 variant="ghost" 
@@ -358,8 +346,6 @@ export function ParentDashboard() {
                 <Crown className="w-5 h-5" />
               </Button>
             )}
-=======
->>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96
             <Button 
               variant="ghost" 
               onClick={signOut}
@@ -503,7 +489,6 @@ export function ParentDashboard() {
                       </p>
                     ) : (
                       <div className="space-y-2">
-<<<<<<< HEAD
                         {professionals.map((prof) => {
                           const getStatusBadge = (status?: string) => {
                             if (!status || status === 'accepted') {
@@ -555,24 +540,6 @@ export function ParentDashboard() {
                             </div>
                           )
                         })}
-=======
-                        {professionals.map((prof) => (
-                          <div key={prof.id} className="flex items-start justify-between p-3 bg-muted rounded-lg">
-                            <div className="flex-1 min-w-0">
-                              <p className="truncate">{prof.name}</p>
-                              <p className="text-sm text-muted-foreground truncate">{prof.type}</p>
-                              <p className="text-xs text-muted-foreground truncate">{prof.email}</p>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleRemoveProfessional(prof.id)}
-                            >
-                              <Trash2 className="w-4 h-4 text-destructive" />
-                            </Button>
-                          </div>
-                        ))}
->>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96
                       </div>
                     )}
                   </ScrollArea>

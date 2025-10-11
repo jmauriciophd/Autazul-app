@@ -6,17 +6,12 @@ Validar o sistema de controle de acesso administrativo ao AdminPanel do Autazul.
 ## ✅ Checklist de Testes
 
 ### Teste 1: Login e Identificação de Admin
-<<<<<<< HEAD
 - [x] Fazer login com `jmauriciophd@gmail.com`
 - [ ] Verificar presença do ícone de coroa (👑) dourada no header
   - **⚠️ PROBLEMA IDENTIFICADO**: Ícone não aparece
   - **📝 CAUSA**: Campo `isAdmin` não está definido no localStorage
   - **✅ SOLUÇÃO**: Ver arquivo [SOLUCAO_ICONE_COROA.md](./SOLUCAO_ICONE_COROA.md)
   - **🔍 DIAGNÓSTICO**: Executar script em [DIAGNOSTICO_ADMIN.md](./DIAGNOSTICO_ADMIN.md)
-=======
-- [ ] Fazer login com `jmauriciophd@gmail.com`
-- [ ] Verificar presença do ícone de coroa (👑) dourada no header
->>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96
 - [ ] Fazer login com `webservicesbsb@gmail.com`
 - [ ] Verificar presença do ícone de coroa (👑) dourada no header
 - [ ] Fazer login com email não-admin (ex: `usuario@teste.com`)
@@ -24,11 +19,8 @@ Validar o sistema de controle de acesso administrativo ao AdminPanel do Autazul.
 
 **Status Esperado**: ✅ Apenas admins veem o ícone
 
-<<<<<<< HEAD
 **Status Atual**: ⚠️ Requer logout e login novamente para atualizar dados
 
-=======
->>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96
 ---
 
 ### Teste 2: Acesso ao Painel Administrativo
@@ -246,7 +238,6 @@ Após completar todos os testes:
 
 ---
 
-<<<<<<< HEAD
 ## 🔧 Troubleshooting
 
 ### Problema: Ícone de Coroa Não Aparece
@@ -316,7 +307,3 @@ console.table({
 **Documento criado em**: 10/01/2025  
 **Última atualização**: 10/01/2025  
 **Status**: ⚠️ Problema identificado e soluções documentadas
-=======
-**Documento criado em**: 10/01/2025  
-**Última atualização**: 10/01/2025
->>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96

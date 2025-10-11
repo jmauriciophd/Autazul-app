@@ -66,17 +66,10 @@ export class ApiClient {
   }
 
   // Auth
-<<<<<<< HEAD
   async signup(email: string, password: string, name: string, role: 'parent' | 'professional' = 'parent') {
     return this.request<{ success: boolean; userId: string }>('/signup', {
       method: 'POST',
       body: JSON.stringify({ email, password, name, role }),
-=======
-  async signup(email: string, password: string, name: string) {
-    return this.request<{ success: boolean; userId: string }>('/signup', {
-      method: 'POST',
-      body: JSON.stringify({ email, password, name }),
->>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96
     })
   }
 
