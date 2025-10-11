@@ -6,8 +6,17 @@ Validar o sistema de controle de acesso administrativo ao AdminPanel do Autazul.
 ## ✅ Checklist de Testes
 
 ### Teste 1: Login e Identificação de Admin
+<<<<<<< HEAD
+- [x] Fazer login com `jmauriciophd@gmail.com`
+- [ ] Verificar presença do ícone de coroa (👑) dourada no header
+  - **⚠️ PROBLEMA IDENTIFICADO**: Ícone não aparece
+  - **📝 CAUSA**: Campo `isAdmin` não está definido no localStorage
+  - **✅ SOLUÇÃO**: Ver arquivo [SOLUCAO_ICONE_COROA.md](./SOLUCAO_ICONE_COROA.md)
+  - **🔍 DIAGNÓSTICO**: Executar script em [DIAGNOSTICO_ADMIN.md](./DIAGNOSTICO_ADMIN.md)
+=======
 - [ ] Fazer login com `jmauriciophd@gmail.com`
 - [ ] Verificar presença do ícone de coroa (👑) dourada no header
+>>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96
 - [ ] Fazer login com `webservicesbsb@gmail.com`
 - [ ] Verificar presença do ícone de coroa (👑) dourada no header
 - [ ] Fazer login com email não-admin (ex: `usuario@teste.com`)
@@ -15,6 +24,11 @@ Validar o sistema de controle de acesso administrativo ao AdminPanel do Autazul.
 
 **Status Esperado**: ✅ Apenas admins veem o ícone
 
+<<<<<<< HEAD
+**Status Atual**: ⚠️ Requer logout e login novamente para atualizar dados
+
+=======
+>>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96
 ---
 
 ### Teste 2: Acesso ao Painel Administrativo
@@ -232,5 +246,77 @@ Após completar todos os testes:
 
 ---
 
+<<<<<<< HEAD
+## 🔧 Troubleshooting
+
+### Problema: Ícone de Coroa Não Aparece
+
+**Sintoma**: Após fazer login com email admin, o ícone (👑) não aparece no header.
+
+**Causa**: Campo `isAdmin` não está definido no objeto do usuário no localStorage (sessão antiga).
+
+**Soluções**:
+
+#### Solução 1: Logout e Login (Recomendada) ⭐
+```
+1. Clicar em "Sair" no header
+2. Fazer login novamente
+3. Verificar se ícone aparece
+```
+
+#### Solução 2: Executar Script de Diagnóstico
+```
+1. Abrir console (F12)
+2. Copiar script de DIAGNOSTICO_ADMIN.md
+3. Colar no console e pressionar Enter
+4. Seguir instruções do diagnóstico
+```
+
+#### Solução 3: Limpar LocalStorage
+```
+1. F12 → Application → Local Storage
+2. Deletar chaves: user, auth_token, activeRole
+3. F5 para recarregar
+4. Fazer login novamente
+```
+
+**Documentos de Apoio**:
+- 📖 [SOLUCAO_ICONE_COROA.md](./SOLUCAO_ICONE_COROA.md) - Guia completo de solução
+- 🔍 [DIAGNOSTICO_ADMIN.md](./DIAGNOSTICO_ADMIN.md) - Script de diagnóstico
+
+---
+
+### Verificação Rápida (Console)
+
+Executar no console do navegador (F12):
+
+```javascript
+// Verificar status de admin
+const user = JSON.parse(localStorage.getItem('user'))
+console.table({
+  'Email': user?.email,
+  'Is Admin': user?.isAdmin,
+  'Should See Crown': user?.isAdmin === true ? 'YES' : 'NO'
+})
+```
+
+**Resultado esperado para admin**:
+```
+┌──────────────────┬─────────────────────────┐
+│ (index)          │ Values                  │
+├──────────────────┼─────────────────────────┤
+│ Email            │ jmauriciophd@gmail.com  │
+│ Is Admin         │ true                    │
+│ Should See Crown │ YES                     │
+└──────────────────┴─────────────────────────┘
+```
+
+---
+
+**Documento criado em**: 10/01/2025  
+**Última atualização**: 10/01/2025  
+**Status**: ⚠️ Problema identificado e soluções documentadas
+=======
 **Documento criado em**: 10/01/2025  
 **Última atualização**: 10/01/2025
+>>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96

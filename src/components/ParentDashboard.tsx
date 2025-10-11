@@ -9,10 +9,19 @@ import { Input } from './ui/input'
 import { Label } from './ui/label'
 import { Textarea } from './ui/textarea'
 import { Calendar } from './ui/calendar'
+<<<<<<< HEAD
+import { LogOut, Plus, UserPlus, Users, Trash2, Copy, Check, Calendar as CalendarIcon, Edit, Settings, Shield, Crown } from 'lucide-react'
+import logoImage from 'figma:asset/4808b01f93843e68942dc5705a8c21d55435df1b.png'
+import { NotificationsPopover } from './NotificationsPopover'
+import { SecuritySettings } from './SecuritySettings'
+import { AdminPanel } from './AdminPanel'
+import { ProfileSwitcher } from './ProfileSwitcher'
+=======
 import { LogOut, Plus, UserPlus, Users, Trash2, Copy, Check, Calendar as CalendarIcon, Edit, Settings, Shield } from 'lucide-react'
 import logoImage from 'figma:asset/4808b01f93843e68942dc5705a8c21d55435df1b.png'
 import { NotificationsPopover } from './NotificationsPopover'
 import { SecuritySettings } from './SecuritySettings'
+>>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
 import { Badge } from './ui/badge'
@@ -37,6 +46,11 @@ interface Professional {
   email: string
   type: string
   linkedAt: string
+<<<<<<< HEAD
+  status?: 'pending' | 'accepted' | 'rejected'
+  inviteToken?: string
+=======
+>>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96
 }
 
 interface Event {
@@ -72,6 +86,10 @@ export function ParentDashboard() {
   const [addEventDialogOpen, setAddEventDialogOpen] = useState(false)
   const [editChildDialogOpen, setEditChildDialogOpen] = useState(false)
   const [securitySettingsOpen, setSecuritySettingsOpen] = useState(false)
+<<<<<<< HEAD
+  const [showAdminPanel, setShowAdminPanel] = useState(false)
+=======
+>>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96
   const [inviteUrlDialog, setInviteUrlDialog] = useState<{ open: boolean; url: string; token: string }>({ open: false, url: '', token: '' })
   const [copied, setCopied] = useState(false)
 
@@ -267,6 +285,39 @@ export function ParentDashboard() {
     'Alta': '#dc2626',
   }
 
+<<<<<<< HEAD
+  // Show admin panel if user is admin and flag is set
+  if (showAdminPanel && user?.isAdmin) {
+    return (
+      <div className="min-h-screen" style={{ backgroundColor: '#EBF2F5' }}>
+        <header style={{ backgroundColor: '#46B0FD' }}>
+          <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden" style={{ backgroundColor: '#46B0FD' }}>
+                <img src={logoImage} alt="Autazul Logo" className="w-full h-full object-cover" />
+              </div>
+              <div>
+                <h1 className="text-xl" style={{ fontFamily: "'Roboto Condensed', sans-serif", color: '#ffffff' }}>Autazul - Admin</h1>
+                <p className="text-sm" style={{ color: '#ffffff', opacity: 0.9 }}>Painel Administrativo</p>
+              </div>
+            </div>
+            <Button 
+              variant="ghost" 
+              onClick={() => setShowAdminPanel(false)}
+              style={{ color: '#ffffff' }}
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Voltar ao Dashboard
+            </Button>
+          </div>
+        </header>
+        <AdminPanel />
+      </div>
+    )
+  }
+
+=======
+>>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#f5f5f5' }}>
       {/* Header */}
@@ -282,6 +333,10 @@ export function ParentDashboard() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+<<<<<<< HEAD
+            <ProfileSwitcher />
+=======
+>>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96
             <NotificationsPopover />
             <Button 
               variant="ghost" 
@@ -291,6 +346,20 @@ export function ParentDashboard() {
             >
               <Shield className="w-5 h-5" style={{ color: '#5C8599' }} />
             </Button>
+<<<<<<< HEAD
+            {user?.isAdmin && (
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={() => setShowAdminPanel(true)}
+                title="Painel Administrativo"
+                style={{ color: '#eab308' }}
+              >
+                <Crown className="w-5 h-5" />
+              </Button>
+            )}
+=======
+>>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96
             <Button 
               variant="ghost" 
               onClick={signOut}
@@ -434,6 +503,59 @@ export function ParentDashboard() {
                       </p>
                     ) : (
                       <div className="space-y-2">
+<<<<<<< HEAD
+                        {professionals.map((prof) => {
+                          const getStatusBadge = (status?: string) => {
+                            if (!status || status === 'accepted') {
+                              return (
+                                <Badge variant="default" style={{ backgroundColor: '#22c55e' }}>
+                                  Ativo
+                                </Badge>
+                              )
+                            }
+                            if (status === 'pending') {
+                              return (
+                                <Badge variant="secondary" style={{ backgroundColor: '#eab308', color: '#ffffff' }}>
+                                  Convite Pendente
+                                </Badge>
+                              )
+                            }
+                            if (status === 'rejected') {
+                              return (
+                                <Badge variant="destructive">
+                                  Recusado
+                                </Badge>
+                              )
+                            }
+                            return null
+                          }
+
+                          return (
+                            <div key={prof.id} className="flex items-start justify-between p-3 bg-muted rounded-lg">
+                              <div className="flex-1 min-w-0 space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <p className="truncate font-medium">{prof.name}</p>
+                                  {getStatusBadge(prof.status)}
+                                </div>
+                                <p className="text-sm text-muted-foreground truncate">{prof.type}</p>
+                                <p className="text-xs text-muted-foreground truncate">{prof.email}</p>
+                                {prof.status === 'pending' && (
+                                  <p className="text-xs italic" style={{ color: '#5C8599' }}>
+                                    Aguardando aceitação do profissional
+                                  </p>
+                                )}
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleRemoveProfessional(prof.id)}
+                              >
+                                <Trash2 className="w-4 h-4 text-destructive" />
+                              </Button>
+                            </div>
+                          )
+                        })}
+=======
                         {professionals.map((prof) => (
                           <div key={prof.id} className="flex items-start justify-between p-3 bg-muted rounded-lg">
                             <div className="flex-1 min-w-0">
@@ -450,6 +572,7 @@ export function ParentDashboard() {
                             </Button>
                           </div>
                         ))}
+>>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96
                       </div>
                     )}
                   </ScrollArea>

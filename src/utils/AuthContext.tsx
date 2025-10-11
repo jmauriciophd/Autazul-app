@@ -13,13 +13,21 @@ interface User {
   email: string
   name: string
   role: 'parent' | 'professional'
+<<<<<<< HEAD
+  isAdmin?: boolean
+=======
+>>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96
 }
 
 interface AuthContextType {
   user: User | null
   loading: boolean
   signIn: (email: string, password: string) => Promise<void>
+<<<<<<< HEAD
+  signUp: (email: string, password: string, name: string, role?: 'parent' | 'professional') => Promise<void>
+=======
   signUp: (email: string, password: string, name: string) => Promise<void>
+>>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96
   signOut: () => Promise<void>
 }
 
@@ -50,7 +58,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           const { user: userData } = await api.getUser()
           console.log('User data fetched successfully:', userData)
+<<<<<<< HEAD
+          
+          // Check if user is admin
+          const adminEmails = ['jmauriciophd@gmail.com', 'webservicesbsb@gmail.com']
+          const isAdmin = adminEmails.includes(userData.email.toLowerCase())
+          
+          // Restore active role from localStorage (persists between sessions)
+          const activeRole = localStorage.getItem('activeRole') as 'parent' | 'professional' | null
+          const role = activeRole || userData.role || 'parent'
+          
+          const userWithProfile = {
+            ...userData,
+            isAdmin,
+            role,
+            baseRole: userData.role
+          }
+          
+          setUser(userWithProfile)
+          localStorage.setItem('user', JSON.stringify(userWithProfile))
+=======
           setUser(userData)
+>>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96
         } catch (userError) {
           console.error('Error fetching user data:', userError)
           // If getting user fails, clear the session
@@ -78,12 +107,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (data.session) {
       api.setToken(data.session.access_token)
       const { user: userData } = await api.getUser()
+<<<<<<< HEAD
+      
+      // Check if user is admin
+      const adminEmails = ['jmauriciophd@gmail.com', 'webservicesbsb@gmail.com']
+      const isAdmin = adminEmails.includes(userData.email.toLowerCase())
+      
+      // Get selected profile from localStorage (set during login)
+      const selectedProfile = localStorage.getItem('selectedProfile') as 'parent' | 'professional' | null
+      const activeRole = selectedProfile || userData.role || 'parent'
+      
+      // Save active role for this session
+      const userWithProfile = { 
+        ...userData, 
+        isAdmin,
+        role: activeRole,
+        baseRole: userData.role // Keep original role from DB
+      }
+      
+      setUser(userWithProfile)
+      localStorage.setItem('user', JSON.stringify(userWithProfile))
+      localStorage.setItem('activeRole', activeRole)
+    }
+  }
+
+  async function signUp(email: string, password: string, name: string, role: 'parent' | 'professional' = 'parent') {
+    await api.signup(email, password, name, role)
+=======
       setUser(userData)
     }
   }
 
   async function signUp(email: string, password: string, name: string) {
     await api.signup(email, password, name)
+>>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96
     
     // After signup, sign in with a small delay to ensure user is created
     await new Promise(resolve => setTimeout(resolve, 500))
@@ -94,6 +151,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut()
     api.setToken(null)
     setUser(null)
+<<<<<<< HEAD
+    localStorage.removeItem('auth_token')
+    localStorage.removeItem('user')
+    // Keep selectedProfile and activeRole for next login (persist preference)
+=======
+>>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96
   }
 
   return (

@@ -4,6 +4,11 @@ import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
+<<<<<<< HEAD
+import { RadioGroup, RadioGroupItem } from './ui/radio-group'
+import { Users, Stethoscope } from 'lucide-react'
+=======
+>>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96
 import logoImage from 'figma:asset/4808b01f93843e68942dc5705a8c21d55435df1b.png'
 import backgroundImage from 'figma:asset/e42e586c023e98f242ba36ab0d21a55a8ab1b18c.png'
 
@@ -13,8 +18,16 @@ export function AuthScreen() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
+<<<<<<< HEAD
+  const [profileType, setProfileType] = useState<'parent' | 'professional'>('parent')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [hasChildren, setHasChildren] = useState(false)
+  const [checkingProfile, setCheckingProfile] = useState(false)
+=======
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+>>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -23,6 +36,11 @@ export function AuthScreen() {
 
     try {
       if (isLogin) {
+<<<<<<< HEAD
+        // Salvar perfil selecionado antes do login
+        localStorage.setItem('selectedProfile', profileType)
+=======
+>>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96
         await signIn(email, password)
       } else {
         if (!name) {
@@ -30,7 +48,12 @@ export function AuthScreen() {
           setLoading(false)
           return
         }
+<<<<<<< HEAD
+        // Sempre criar como parent no signup
+        await signUp(email, password, name, 'parent')
+=======
         await signUp(email, password, name)
+>>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96
       }
     } catch (err: any) {
       setError(err.message || 'Ocorreu um erro. Tente novamente.')
@@ -39,6 +62,24 @@ export function AuthScreen() {
     }
   }
 
+<<<<<<< HEAD
+  // Verificar se usuário tem crianças cadastradas (só no login)
+  async function checkUserHasChildren(userEmail: string) {
+    try {
+      setCheckingProfile(true)
+      // Aqui faremos uma chamada temporária para verificar
+      // Por enquanto, vamos permitir a seleção e verificar no backend
+      setHasChildren(true) // Placeholder
+    } catch (error) {
+      console.error('Error checking children:', error)
+      setHasChildren(false)
+    } finally {
+      setCheckingProfile(false)
+    }
+  }
+
+=======
+>>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96
   return (
     <div 
       className="min-h-screen flex items-center justify-center p-4 relative"
@@ -74,7 +115,11 @@ export function AuthScreen() {
             <CardDescription className="text-base" style={{ color: '#5C8599' }}>
               {isLogin
                 ? 'Entre na sua conta'
+<<<<<<< HEAD
+                : 'Crie sua conta como Pai/Responsável'}
+=======
                 : 'Crie sua conta como responsável'}
+>>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96
             </CardDescription>
           </div>
         </CardHeader>
@@ -95,6 +140,49 @@ export function AuthScreen() {
                 />
               </div>
             )}
+<<<<<<< HEAD
+            
+            {isLogin && (
+              <div className="space-y-3">
+                <Label style={{ color: '#373737' }}>Acessar como</Label>
+                <RadioGroup value={profileType} onValueChange={(value) => setProfileType(value as 'parent' | 'professional')}>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div
+                      className={`relative flex items-center space-x-3 rounded-lg border-2 p-4 cursor-pointer transition-all ${
+                        profileType === 'parent' ? 'border-[#15C3D6] bg-blue-50' : 'border-[#BDBCBC] bg-white'
+                      }`}
+                      onClick={() => setProfileType('parent')}
+                    >
+                      <RadioGroupItem value="parent" id="parent" className="sr-only" />
+                      <Users className="w-5 h-5" style={{ color: profileType === 'parent' ? '#15C3D6' : '#5C8599' }} />
+                      <Label htmlFor="parent" className="cursor-pointer flex-1 text-sm" style={{ color: '#373737' }}>
+                        Pai/Responsável
+                      </Label>
+                    </div>
+                    
+                    <div
+                      className={`relative flex items-center space-x-3 rounded-lg border-2 p-4 cursor-pointer transition-all ${
+                        profileType === 'professional' ? 'border-[#15C3D6] bg-blue-50' : 'border-[#BDBCBC] bg-white'
+                      }`}
+                      onClick={() => setProfileType('professional')}
+                    >
+                      <RadioGroupItem value="professional" id="professional" className="sr-only" />
+                      <Stethoscope className="w-5 h-5" style={{ color: profileType === 'professional' ? '#15C3D6' : '#5C8599' }} />
+                      <Label htmlFor="professional" className="cursor-pointer flex-1 text-sm" style={{ color: '#373737' }}>
+                        Profissional
+                      </Label>
+                    </div>
+                  </div>
+                </RadioGroup>
+                <p className="text-xs" style={{ color: '#5C8599' }}>
+                  {profileType === 'parent' 
+                    ? 'Acesse o painel de pais/responsáveis'
+                    : 'Acesse o painel de profissionais'}
+                </p>
+              </div>
+            )}
+=======
+>>>>>>> dfa4ee272b9563e066d1ce9e343c5dde6b0acb96
             <div className="space-y-2">
               <Label htmlFor="email" style={{ color: '#373737' }}>Email</Label>
               <Input
