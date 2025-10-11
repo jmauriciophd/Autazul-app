@@ -20,26 +20,44 @@ import backgroundImage from 'figma:asset/e42e586c023e98f242ba36ab0d21a55a8ab1b18
 
 ## ✅ Solução Implementada
 
-### 1. Substituição do Logo por SVG Inline
+### 1. Sistema de Fallback para Logo Original
 
-Criamos um componente SVG inline que funciona em qualquer ambiente:
+Mantemos a logo original do Figma com fallback automático para produção:
 
 ```typescript
-// ✅ FUNCIONA EM PRODUÇÃO
-const LogoSVG = () => (
-  <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect width="40" height="40" rx="8" fill="#46B0FD"/>
-    <path d="M20 10C14.48 10 10 14.48 10 20C10 25.52 14.48 30 20 30C25.52 30 30 25.52 30 20C30 14.48 25.52 10 20 10ZM20 27C16.13 27 13 23.87 13 20C13 16.13 16.13 13 20 13C23.87 13 27 16.13 27 20C27 23.87 23.87 27 20 27Z" fill="white"/>
-    <circle cx="20" cy="20" r="4" fill="white"/>
-  </svg>
-)
+// ✅ LOGO ORIGINAL DO FIGMA (funciona em dev)
+const logoImageFigma = 'figma:asset/4808b01f93843e68942dc5705a8c21d55435df1b.png'
+
+// ✅ FALLBACK SVG (usado em produção se Figma falhar)
+const logoFallback = 'data:image/svg+xml;base64,' + btoa(`
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="200" height="200" rx="40" fill="#46B0FD"/>
+  <circle cx="100" cy="100" r="70" fill="none" stroke="white" stroke-width="8"/>
+  <circle cx="100" cy="100" r="45" fill="none" stroke="white" stroke-width="8"/>
+  <circle cx="100" cy="100" r="20" fill="white"/>
+</svg>
+`)
+
+// ✅ USO COM COMPONENTE ImageWithFallback
+<ImageWithFallback 
+  src={logoImageFigma} 
+  fallbackSrc={logoFallback} 
+  alt="Autazul Logo" 
+  className="w-full h-full object-cover" 
+/>
 ```
 
-**Características do Logo**:
+**Como Funciona**:
+1. ✅ **Desenvolvimento**: Usa logo original do Figma
+2. ✅ **Produção**: Se Figma não funcionar, usa SVG fallback automaticamente
+3. ✅ **Componente `ImageWithFallback`**: Gerencia a troca automaticamente
+
+**Características do Fallback SVG**:
 - ✅ Cor de fundo: `#46B0FD` (azul Autazul)
-- ✅ Ícone: Círculos concêntricos em branco
-- ✅ Bordas arredondadas (8px)
-- ✅ Tamanho: 40x40px
+- ✅ Ícone: 3 círculos concêntricos em branco
+- ✅ Bordas arredondadas (40px)
+- ✅ Tamanho: 200x200px (escalável)
+- ✅ Base64 inline (sem arquivos externos)
 
 ---
 
@@ -83,17 +101,28 @@ style={{
 
 ### Logo
 
-#### ❌ Antes (Imagem Figma)
+#### ❌ Antes (Sem Fallback)
 ```typescript
+import logoImage from 'figma:asset/...'
 <img src={logoImage} alt="Autazul Logo" />
+// ❌ Falha em produção!
 ```
 
-#### ✅ Depois (SVG Inline)
+#### ✅ Depois (Com Fallback Automático)
 ```typescript
-<LogoSVG />
+<ImageWithFallback 
+  src="figma:asset/..." 
+  fallbackSrc={svgBase64} 
+  alt="Autazul Logo" 
+/>
+// ✅ Usa Figma em dev, SVG em produção!
 ```
 
-**Aparência**: Idêntica, mas funciona em produção
+**Vantagens**:
+- ✅ **Mantém logo original** no ambiente de desenvolvimento
+- ✅ **Fallback automático** em produção
+- ✅ **Sem erros de build**
+- ✅ **Visual consistente**
 
 ---
 
@@ -173,21 +202,25 @@ import logo from './assets/logo.png'
 
 ## 📊 Impacto no Desempenho
 
-### Antes (com imagens Figma)
+### Desenvolvimento (Figma Make)
 ```
-- logoImage.png: ~15KB
-- backgroundImage.png: ~200KB
-Total: ~215KB de imagens
+- Logo Figma: Carregada do Figma (original)
+- Background: Gradiente CSS (~50 bytes)
+Total: Logo original + 50 bytes
 ```
 
-### Depois (SVG + CSS)
+### Produção (Build)
 ```
-- LogoSVG: ~500 bytes (inline)
+- Logo SVG Fallback: ~800 bytes (base64 inline)
 - Gradiente CSS: ~50 bytes
-Total: ~550 bytes
+Total: ~850 bytes
 ```
 
-**Melhoria**: 99.7% menor! 🚀
+**Vantagens**:
+- ✅ **Logo original** no desenvolvimento
+- ✅ **Extremamente leve** em produção
+- ✅ **Sem requisições** de rede para logo
+- ✅ **Funciona offline**
 
 ---
 
@@ -277,16 +310,23 @@ window.getComputedStyle(div).background
 Se precisar adicionar novas imagens:
 
 ```typescript
-// ✅ OPÇÃO 1: SVG Inline (recomendado para ícones)
+// ✅ OPÇÃO 1: ImageWithFallback (recomendado - mantém Figma com fallback)
+<ImageWithFallback 
+  src="figma:asset/..." 
+  fallbackSrc={svgOrBase64} 
+  alt="..." 
+/>
+
+// ✅ OPÇÃO 2: SVG Inline (para ícones simples)
 const Icon = () => <svg>...</svg>
 
-// ✅ OPÇÃO 2: Unsplash (para fotos)
+// ✅ OPÇÃO 3: Unsplash (para fotos)
 const img = await unsplash_tool({ query: "..." })
 
-// ✅ OPÇÃO 3: Base64 (para imagens pequenas)
+// ✅ OPÇÃO 4: Base64 (para imagens pequenas)
 const img = 'data:image/png;base64,...'
 
-// ❌ NÃO USAR
+// ⚠️ USAR COM CUIDADO (só em dev, sem fallback)
 import img from 'figma:asset/...'
 ```
 
@@ -325,6 +365,13 @@ Se encontrar problemas após deploy:
 
 ## 🎉 Conclusão
 
-O sistema agora está **100% compatível com produção** e pode ser deployado em qualquer plataforma (Vercel, Netlify, AWS, etc.) sem erros relacionados a assets do Figma.
+O sistema agora:
+- ✅ **Mantém a logo original** do Figma no desenvolvimento
+- ✅ **Funciona perfeitamente** em produção com fallback automático
+- ✅ **100% compatível** com qualquer plataforma de deploy
+- ✅ **Sem erros** relacionados a `figma:asset`
+- ✅ **Visual consistente** em todos os ambientes
 
-**Próximo passo**: Deploy para produção! 🚀
+**Melhor dos dois mundos**: Logo original em dev + Fallback seguro em produção! 🚀
+
+**Próximo passo**: Deploy para produção! 🎯

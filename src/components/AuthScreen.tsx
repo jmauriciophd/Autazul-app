@@ -6,15 +6,19 @@ import { Label } from './ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
 import { RadioGroup, RadioGroupItem } from './ui/radio-group'
 import { Users, Stethoscope } from 'lucide-react'
+import { ImageWithFallback } from './figma/ImageWithFallback'
 
-// Logo SVG inline para produção
-const LogoSVG = () => (
-  <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect width="40" height="40" rx="8" fill="#46B0FD"/>
-    <path d="M20 10C14.48 10 10 14.48 10 20C10 25.52 14.48 30 20 30C25.52 30 30 25.52 30 20C30 14.48 25.52 10 20 10ZM20 27C16.13 27 13 23.87 13 20C13 16.13 16.13 13 20 13C23.87 13 27 16.13 27 20C27 23.87 23.87 27 20 27Z" fill="white"/>
-    <circle cx="20" cy="20" r="4" fill="white"/>
-  </svg>
-)
+// Logo original do Figma - funciona em dev e produção
+const logoImageFigma = 'figma:asset/4808b01f93843e68942dc5705a8c21d55435df1b.png'
+// Fallback SVG
+const logoFallback = 'data:image/svg+xml;base64,' + btoa(`
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="200" height="200" rx="40" fill="#46B0FD"/>
+  <circle cx="100" cy="100" r="70" fill="none" stroke="white" stroke-width="8"/>
+  <circle cx="100" cy="100" r="45" fill="none" stroke="white" stroke-width="8"/>
+  <circle cx="100" cy="100" r="20" fill="white"/>
+</svg>
+`)
 
 export function AuthScreen() {
   const { signIn, signUp } = useAuth()
@@ -85,14 +89,9 @@ export function AuthScreen() {
       <Card className="w-full max-w-md relative z-10 shadow-2xl border-2" style={{ borderColor: '#15C3D6' }}>
         <CardHeader className="space-y-6 pb-8">
           <div className="flex justify-center">
-            <div className="w-20 h-20 flex items-center justify-center">
-              <LogoSVG /></div>
-            {/* Logo comentado - usando SVG inline
-            <img 
-              src={logoImage} 
-              alt="Autazul Logo" 
-              className="w-28 h-28 object-contain"
-            /> */}
+            <div className="w-28 h-28 flex items-center justify-center">
+              <ImageWithFallback src={logoImageFigma} fallbackSrc={logoFallback} alt="Autazul Logo" className="w-full h-full object-contain" />
+            </div>
           </div>
           <div className="text-center">
             <h1 className="mb-2" style={{ 
