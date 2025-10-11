@@ -20,70 +20,74 @@ import backgroundImage from 'figma:asset/e42e586c023e98f242ba36ab0d21a55a8ab1b18
 
 ## ✅ Solução Implementada
 
-### 1. Sistema de Fallback para Logo Original
+### 1. Assets Centralizados em `/assets/logo.tsx`
 
-Mantemos a logo original do Figma com fallback automático para produção:
+Toda gestão de imagens agora está centralizada em um único arquivo:
 
 ```typescript
-// ✅ LOGO ORIGINAL DO FIGMA (funciona em dev)
-const logoImageFigma = 'figma:asset/4808b01f93843e68942dc5705a8c21d55435df1b.png'
+// 📁 /assets/logo.tsx - Arquivo centralizador
 
-// ✅ FALLBACK SVG (usado em produção se Figma falhar)
-const logoFallback = 'data:image/svg+xml;base64,' + btoa(`
-<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="200" height="200" rx="40" fill="#46B0FD"/>
-  <circle cx="100" cy="100" r="70" fill="none" stroke="white" stroke-width="8"/>
-  <circle cx="100" cy="100" r="45" fill="none" stroke="white" stroke-width="8"/>
-  <circle cx="100" cy="100" r="20" fill="white"/>
-</svg>
-`)
+// Tenta importar do Figma, se falhar usa SVG inline
+let logoUrl: string;
+try {
+  logoUrl = require('figma:asset/4808b01f93...png');
+} catch {
+  logoUrl = 'data:image/svg+xml;base64,' + btoa(`<svg>...</svg>`);
+}
 
-// ✅ USO COM COMPONENTE ImageWithFallback
-<ImageWithFallback 
-  src={logoImageFigma} 
-  fallbackSrc={logoFallback} 
-  alt="Autazul Logo" 
-  className="w-full h-full object-cover" 
-/>
+export const autazulLogo = logoUrl;
+export const loginBackground = 'data:image/svg+xml;base64,...';
+```
+
+```typescript
+// 📁 Uso nos componentes (SIMPLES!)
+
+import { autazulLogo, loginBackground } from '../assets/logo'
+
+// Logo
+<img src={autazulLogo} alt="Autazul Logo" />
+
+// Background
+<div style={{ backgroundImage: `url(${loginBackground})` }} />
 ```
 
 **Como Funciona**:
-1. ✅ **Desenvolvimento**: Usa logo original do Figma
-2. ✅ **Produção**: Se Figma não funcionar, usa SVG fallback automaticamente
-3. ✅ **Componente `ImageWithFallback`**: Gerencia a troca automaticamente
+1. ✅ **Arquivo único** gerencia todas as imagens
+2. ✅ **Try/catch automático** no import
+3. ✅ **Import simples** nos componentes
+4. ✅ **Sem código repetido**
 
 **Características do Fallback SVG**:
-- ✅ Cor de fundo: `#46B0FD` (azul Autazul)
-- ✅ Ícone: 3 círculos concêntricos em branco
-- ✅ Bordas arredondadas (40px)
+- ✅ **Design**: Coração puzzle (símbolo do autismo)
+- ✅ **Cores**: 
+  - 🟡 Amarelo (#FFD700)
+  - 🟢 Verde (#22C55E)
+  - 🔵 Azul (#3B82F6)
+  - 🔴 Vermelho (#EF4444)
+- ✅ **Formato**: Peças de quebra-cabeça entrelaçadas
 - ✅ Tamanho: 200x200px (escalável)
 - ✅ Base64 inline (sem arquivos externos)
 
 ---
 
-### 2. Substituição do Background por Gradiente CSS
+### 2. Estrutura de Arquivos Simplificada
 
-```typescript
-// ❌ ANTES (não funciona em produção)
-style={{
-  backgroundImage: `url(${backgroundImage})`,
-  backgroundSize: 'cover',
-  backgroundPosition: 'center',
-  backgroundColor: '#EBF2F5'
-}}
+```
+/assets/
+  ├── logo.tsx          ✅ Gerencia logo e background
+  └── README.md         ℹ️ Instruções para adicionar logo.png
 
-// ✅ DEPOIS (funciona em produção)
-style={{
-  background: 'linear-gradient(135deg, #EBF2F5 0%, #D3E8F0 100%)',
-  backgroundColor: '#EBF2F5'
-}}
+/components/
+  ├── AuthScreen.tsx           ✅ import { autazulLogo, loginBackground }
+  ├── ParentDashboard.tsx      ✅ import { autazulLogo }
+  └── ProfessionalDashboard.tsx ✅ import { autazulLogo }
 ```
 
 **Vantagens**:
-- ✅ Funciona em qualquer ambiente
-- ✅ Mais leve (sem download de imagem)
-- ✅ Responsivo e suave
-- ✅ Mantém a paleta de cores Autazul
+1. ✅ **Um único lugar** para gerenciar imagens
+2. ✅ **Import simples** em todos os componentes
+3. ✅ **Fallback automático** no arquivo centralizador
+4. ✅ **Fácil manutenção**
 
 ---
 
@@ -101,44 +105,53 @@ style={{
 
 ### Logo
 
-#### ❌ Antes (Sem Fallback)
+#### ❌ Antes (Código Duplicado)
 ```typescript
-import logoImage from 'figma:asset/...'
-<img src={logoImage} alt="Autazul Logo" />
-// ❌ Falha em produção!
+// Em cada componente:
+const logoImageFigma = 'figma:asset/...'
+const logoFallback = 'data:image/svg+xml;base64,...' // Repetido!
+<ImageWithFallback src={logoImageFigma} fallbackSrc={logoFallback} />
 ```
 
-#### ✅ Depois (Com Fallback Automático)
+#### ✅ Depois (Centralizado e Simples)
 ```typescript
-<ImageWithFallback 
-  src="figma:asset/..." 
-  fallbackSrc={svgBase64} 
-  alt="Autazul Logo" 
-/>
-// ✅ Usa Figma em dev, SVG em produção!
+// Em /assets/logo.tsx (uma vez!)
+export const autazulLogo = /* try/catch automático */
+
+// Em todos os componentes (simples!)
+import { autazulLogo } from '../assets/logo'
+<img src={autazulLogo} alt="Autazul Logo" />
 ```
 
 **Vantagens**:
-- ✅ **Mantém logo original** no ambiente de desenvolvimento
-- ✅ **Fallback automático** em produção
-- ✅ **Sem erros de build**
-- ✅ **Visual consistente**
+- ✅ **Sem código duplicado**
+- ✅ **Import simples** (1 linha)
+- ✅ **Fallback gerenciado** em um único lugar
+- ✅ **Fácil de atualizar**
 
 ---
 
 ### Background
 
-#### ❌ Antes (Imagem Figma)
-```css
-background-image: url(figma:asset/...)
+#### ❌ Antes (Complexo)
+```typescript
+const [bgError, setBgError] = useState(false)
+{bgError && <div style={{...}} />}
+<img onError={() => setBgError(true)} style={{ display: 'none' }} />
+/* ❌ Muito código para gerenciar erro! */
 ```
 
-#### ✅ Depois (Gradiente CSS)
-```css
-background: linear-gradient(135deg, #EBF2F5 0%, #D3E8F0 100%)
+#### ✅ Depois (Simples)
+```typescript
+import { loginBackground } from '../assets/logo'
+<div style={{ backgroundImage: `url(${loginBackground})` }} />
+/* ✅ Uma linha! Fallback já está no import! */
 ```
 
-**Aparência**: Suave gradiente azul claro (tema Autazul)
+**Aparência**: 
+- Gradiente azul claro suave
+- Formas de puzzle em opacity 5%
+- Visual consistente em dev e produção
 
 ---
 

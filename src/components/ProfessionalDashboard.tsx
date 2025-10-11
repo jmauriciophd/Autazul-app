@@ -8,19 +8,7 @@ import { Input } from './ui/input'
 import { Label } from './ui/label'
 import { Textarea } from './ui/textarea'
 import { LogOut, Plus, Calendar as CalendarIcon, Users, Baby, Shield, Crown } from 'lucide-react'
-import { ImageWithFallback } from './figma/ImageWithFallback'
-
-// Logo original do Figma - funciona em dev e produção
-const logoImageFigma = 'figma:asset/4808b01f93843e68942dc5705a8c21d55435df1b.png'
-// Fallback SVG
-const logoFallback = 'data:image/svg+xml;base64,' + btoa(`
-<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="200" height="200" rx="40" fill="#46B0FD"/>
-  <circle cx="100" cy="100" r="70" fill="none" stroke="white" stroke-width="8"/>
-  <circle cx="100" cy="100" r="45" fill="none" stroke="white" stroke-width="8"/>
-  <circle cx="100" cy="100" r="20" fill="white"/>
-</svg>
-`)
+import { autazulLogo } from '../assets/logo'
 import { NotificationsPopover } from './NotificationsPopover'
 import { SecuritySettings } from './SecuritySettings'
 import { AdminPanel } from './AdminPanel'
@@ -174,7 +162,7 @@ export function ProfessionalDashboard() {
           <div className="container mx-auto px-4 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden" style={{ backgroundColor: '#46B0FD' }}>
-                <ImageWithFallback src={logoImageFigma} fallbackSrc={logoFallback} alt="Autazul Logo" className="w-full h-full object-cover" />
+                <img src={autazulLogo} alt="Autazul Logo" className="w-full h-full object-cover" />
               </div>
               <div>
                 <h1 className="text-xl" style={{ fontFamily: "'Roboto Condensed', sans-serif", color: '#ffffff' }}>Autazul - Admin</h1>
@@ -203,7 +191,7 @@ export function ProfessionalDashboard() {
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden" style={{ backgroundColor: '#46B0FD' }}>
-              <ImageWithFallback src={logoImageFigma} fallbackSrc={logoFallback} alt="Autazul Logo" className="w-full h-full object-cover" />
+              <img src={autazulLogo} alt="Autazul Logo" className="w-full h-full object-cover" />
             </div>
             <div>
               <h1 className="text-xl" style={{ fontFamily: "'Roboto Condensed', sans-serif", color: '#46B0FD' }}>Autazul - Profissional</h1>

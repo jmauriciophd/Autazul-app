@@ -88,26 +88,30 @@ const logoFallback = 'data:image/svg+xml;base64,' + btoa(`
 ┌─────────────────────────────────────┐
 │                                     │
 │    ┌─────────────────────┐          │
-│    │   ╔═══════════╗     │          │
-│    │   ║           ║     │          │
-│    │   ║    ○ ○    ║     │          │
-│    │   ║     ●     ║     │          │
-│    │   ║           ║     │          │
-│    │   ╚═══════════╝     │          │
+│    │      🟡  🟢         │          │
+│    │        💙           │          │
+│    │     🔵    🔴        │          │
+│    │                     │          │
+│    │   Coração Puzzle    │          │
+│    │  (Símbolo Autismo)  │          │
 │    └─────────────────────┘          │
 │                                     │
-│   3 círculos concêntricos           │
-│   em fundo azul Autazul             │
+│   Peças de quebra-cabeça            │
+│   em formato de coração             │
 └─────────────────────────────────────┘
 ```
 
 **Especificações**:
-- Fundo: `#46B0FD` (azul Autazul)
-- Círculo externo: 70px de raio, branco
-- Círculo médio: 45px de raio, branco
-- Círculo interno: 20px de raio, preenchido branco
-- Bordas arredondadas: 40px
+- **Design**: Coração formado por peças de puzzle
+- **Cores**:
+  - 🟡 Amarelo (#FFD700) - Peça superior esquerda
+  - 🟢 Verde (#22C55E) - Peça superior direita
+  - 🔵 Azul (#3B82F6) - Peça inferior esquerda
+  - 🔴 Vermelho (#EF4444) - Peça inferior direita
+- **Simbolismo**: Representa a conscientização sobre o autismo
+- **Formato**: Peças entrelaçadas formando um coração
 - Tamanho base: 200x200px (escalável)
+- Sombra suave para profundidade
 
 ---
 

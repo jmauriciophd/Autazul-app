@@ -6,19 +6,7 @@ import { Label } from './ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
 import { RadioGroup, RadioGroupItem } from './ui/radio-group'
 import { Users, Stethoscope } from 'lucide-react'
-import { ImageWithFallback } from './figma/ImageWithFallback'
-
-// Logo original do Figma - funciona em dev e produção
-const logoImageFigma = 'figma:asset/4808b01f93843e68942dc5705a8c21d55435df1b.png'
-// Fallback SVG
-const logoFallback = 'data:image/svg+xml;base64,' + btoa(`
-<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="200" height="200" rx="40" fill="#46B0FD"/>
-  <circle cx="100" cy="100" r="70" fill="none" stroke="white" stroke-width="8"/>
-  <circle cx="100" cy="100" r="45" fill="none" stroke="white" stroke-width="8"/>
-  <circle cx="100" cy="100" r="20" fill="white"/>
-</svg>
-`)
+import { autazulLogo, loginBackground } from '../assets/logo'
 
 export function AuthScreen() {
   const { signIn, signUp } = useAuth()
@@ -77,10 +65,11 @@ export function AuthScreen() {
     <div 
       className="min-h-screen flex items-center justify-center p-4 relative"
       style={{
-        background: 'linear-gradient(135deg, #EBF2F5 0%, #D3E8F0 100%)',
+        backgroundImage: `url(${loginBackground})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat'
+        backgroundRepeat: 'no-repeat',
+        backgroundColor: '#EBF2F5'
       }}
     >
       {/* Overlay for transparency */}
@@ -90,7 +79,7 @@ export function AuthScreen() {
         <CardHeader className="space-y-6 pb-8">
           <div className="flex justify-center">
             <div className="w-28 h-28 flex items-center justify-center">
-              <ImageWithFallback src={logoImageFigma} fallbackSrc={logoFallback} alt="Autazul Logo" className="w-full h-full object-contain" />
+              <img src={autazulLogo} alt="Autazul Logo" className="w-full h-full object-contain" />
             </div>
           </div>
           <div className="text-center">

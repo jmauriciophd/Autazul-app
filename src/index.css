@@ -86,7 +86,6 @@
     --color-pink-50: oklch(.971 .014 343.198);
     --color-pink-100: oklch(.948 .028 342.258);
     --color-pink-600: oklch(.592 .249 .584);
-    --color-gray-100: oklch(.967 .003 264.542);
     --color-gray-400: oklch(.707 .022 261.325);
     --color-black: #000;
     --color-white: #fff;
@@ -718,8 +717,8 @@
     display: grid;
   }
 
-  .inline-block {
-    display: inline-block;
+  .inline {
+    display: inline;
   }
 
   .inline-flex {
@@ -1364,10 +1363,6 @@
     background-color: var(--destructive);
   }
 
-  .bg-gray-100 {
-    background-color: var(--color-gray-100);
-  }
-
   .bg-green-50 {
     background-color: var(--color-green-50);
   }
@@ -1632,10 +1627,6 @@
 
   .text-center {
     text-align: center;
-  }
-
-  .align-middle {
-    vertical-align: middle;
   }
 
   .font-mono {
