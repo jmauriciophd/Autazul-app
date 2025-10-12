@@ -717,10 +717,6 @@
     display: grid;
   }
 
-  .inline {
-    display: inline;
-  }
-
   .inline-flex {
     display: inline-flex;
   }
