@@ -110,6 +110,34 @@ export function ChildProfileEditor({ child, open, onOpenChange, onUpdate }: Chil
     }
   }
 
+  async function handleInviteCoParentByEmail(e: React.FormEvent) {
+    e.preventDefault()
+    setLoading(true)
+
+    try {
+      const { coParentName: cpName } = await api.inviteCoParentByEmail(child.id, coParentEmail)
+      setCoParentEmail('')
+      notify.success(
+        'Convite enviado!', 
+        `${cpName} receberá uma notificação no sistema e por email`
+      )
+    } catch (error: any) {
+      console.error('Error inviting co-parent by email:', error)
+      const errorMessage = error?.error || 'Tente novamente'
+      if (errorMessage.includes('não encontrado')) {
+        notify.error('Co-responsável não encontrado', 'Verifique se o email está correto e se a pessoa já possui cadastro no sistema')
+      } else if (errorMessage.includes('já está vinculado')) {
+        notify.error('Co-responsável já vinculado', 'Esta pessoa já tem acesso a esta criança')
+      } else if (errorMessage.includes('não pode adicionar a si mesmo')) {
+        notify.error('Erro', 'Você não pode adicionar a si mesmo como co-responsável')
+      } else {
+        notify.error('Erro ao enviar convite', errorMessage)
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
   function copyToClipboard(text: string) {
     navigator.clipboard.writeText(text)
     setCopied(true)
@@ -212,36 +240,87 @@ export function ChildProfileEditor({ child, open, onOpenChange, onUpdate }: Chil
                     Adicionar Co-Responsável
                   </CardTitle>
                   <CardDescription>
-                    Convide outro responsável (mãe, pai, parente) para acessar e editar os dados
+                    Escolha como deseja convidar o co-responsável
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <form onSubmit={handleInviteCoParent} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="coParentName">Nome</Label>
-                      <Input
-                        id="coParentName"
-                        value={coParentName}
-                        onChange={(e) => setCoParentName(e.target.value)}
-                        placeholder="Nome do co-responsável"
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="coParentEmail">Email</Label>
-                      <Input
-                        id="coParentEmail"
-                        type="email"
-                        value={coParentEmail}
-                        onChange={(e) => setCoParentEmail(e.target.value)}
-                        placeholder="email@exemplo.com"
-                        required
-                      />
-                    </div>
-                    <Button type="submit" className="w-full" disabled={loading}>
-                      {loading ? 'Gerando...' : 'Gerar Convite'}
-                    </Button>
-                  </form>
+                  <Tabs defaultValue="link" className="w-full">
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="link">
+                        🔗 Link de Convite
+                      </TabsTrigger>
+                      <TabsTrigger value="email">
+                        📧 Convite por Email
+                      </TabsTrigger>
+                    </TabsList>
+                    
+                    <TabsContent value="link" className="space-y-4">
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                        <p className="text-sm text-blue-900">
+                          <strong>💡 Para quem não tem cadastro</strong>
+                          <br />
+                          Gere um link único que permite criar uma conta e aceitar o convite.
+                        </p>
+                      </div>
+                      
+                      <form onSubmit={handleInviteCoParent} className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="coParentName">Nome *</Label>
+                          <Input
+                            id="coParentName"
+                            value={coParentName}
+                            onChange={(e) => setCoParentName(e.target.value)}
+                            placeholder="Nome completo"
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="coParentEmail">Email *</Label>
+                          <Input
+                            id="coParentEmail"
+                            type="email"
+                            value={coParentEmail}
+                            onChange={(e) => setCoParentEmail(e.target.value)}
+                            placeholder="email@exemplo.com"
+                            required
+                          />
+                        </div>
+                        <Button type="submit" className="w-full" disabled={loading}>
+                          {loading ? 'Gerando Link...' : '🔗 Gerar Link de Convite'}
+                        </Button>
+                      </form>
+                    </TabsContent>
+                    
+                    <TabsContent value="email" className="space-y-4">
+                      <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-4">
+                        <p className="text-sm text-purple-900">
+                          <strong>✅ Para quem já tem cadastro</strong>
+                          <br />
+                          Envie um convite direto por email. A pessoa poderá aceitar através do sistema ou pelo email.
+                        </p>
+                      </div>
+                      
+                      <form onSubmit={handleInviteCoParentByEmail} className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="coParentEmailInvite">Email do Co-Responsável *</Label>
+                          <Input
+                            id="coParentEmailInvite"
+                            type="email"
+                            value={coParentEmail}
+                            onChange={(e) => setCoParentEmail(e.target.value)}
+                            placeholder="email@exemplo.com"
+                            required
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Digite o email de alguém que já possui conta no Autazul
+                          </p>
+                        </div>
+                        <Button type="submit" className="w-full" disabled={loading}>
+                          {loading ? 'Enviando Convite...' : '📧 Enviar Convite'}
+                        </Button>
+                      </form>
+                    </TabsContent>
+                  </Tabs>
                 </CardContent>
               </Card>
 

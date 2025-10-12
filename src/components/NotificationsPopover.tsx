@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
 import { api } from '../utils/api'
+import { notify } from '../utils/notifications'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 import { Button } from './ui/button'
 import { ScrollArea } from './ui/scroll-area'
 import { Badge } from './ui/badge'
-import { Bell, Check, CheckCheck } from 'lucide-react'
+import { Bell, Check, CheckCheck, UserPlus, X } from 'lucide-react'
 import { Separator } from './ui/separator'
+import { Alert, AlertDescription } from './ui/alert'
 
 interface Notification {
   id: string
@@ -19,22 +21,41 @@ interface Notification {
   readAt?: string
 }
 
+interface Invitation {
+  id: string
+  type: 'professional_invite' | 'coparent_invite'
+  fromUserId: string
+  fromUserName: string
+  toUserId: string
+  childId: string
+  childName: string
+  status: 'pending' | 'accepted' | 'rejected'
+  createdAt: string
+}
+
 export function NotificationsPopover() {
   const [notifications, setNotifications] = useState<Notification[]>([])
+  const [invitations, setInvitations] = useState<Invitation[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [open, setOpen] = useState(false)
+  const [processingInvite, setProcessingInvite] = useState<string | null>(null)
 
   useEffect(() => {
     loadNotifications()
+    loadInvitations()
     // Poll for new notifications every 30 seconds
-    const interval = setInterval(loadNotifications, 30000)
+    const interval = setInterval(() => {
+      loadNotifications()
+      loadInvitations()
+    }, 30000)
     return () => clearInterval(interval)
   }, [])
 
   useEffect(() => {
     const unread = notifications.filter(n => !n.read).length
-    setUnreadCount(unread)
-  }, [notifications])
+    const pending = invitations.filter(i => i.status === 'pending').length
+    setUnreadCount(unread + pending)
+  }, [notifications, invitations])
 
   async function loadNotifications() {
     try {
@@ -42,6 +63,45 @@ export function NotificationsPopover() {
       setNotifications(data || [])
     } catch (error) {
       console.error('Error loading notifications:', error)
+    }
+  }
+
+  async function loadInvitations() {
+    try {
+      const { invitations: data } = await api.getPendingInvitations()
+      setInvitations(data || [])
+    } catch (error) {
+      console.error('Error loading invitations:', error)
+    }
+  }
+
+  async function handleAcceptInvitation(invitationId: string) {
+    setProcessingInvite(invitationId)
+    try {
+      await api.acceptInvitation(invitationId)
+      notify.success('Convite aceito!', 'Você agora tem acesso às informações')
+      await loadInvitations()
+      // Reload page to show new child
+      setTimeout(() => window.location.reload(), 1500)
+    } catch (error: any) {
+      console.error('Error accepting invitation:', error)
+      notify.error('Erro ao aceitar convite', error?.error || 'Tente novamente')
+    } finally {
+      setProcessingInvite(null)
+    }
+  }
+
+  async function handleRejectInvitation(invitationId: string) {
+    setProcessingInvite(invitationId)
+    try {
+      await api.rejectInvitation(invitationId)
+      notify.success('Convite recusado')
+      await loadInvitations()
+    } catch (error: any) {
+      console.error('Error rejecting invitation:', error)
+      notify.error('Erro ao recusar convite', error?.error || 'Tente novamente')
+    } finally {
+      setProcessingInvite(null)
     }
   }
 
@@ -124,7 +184,7 @@ export function NotificationsPopover() {
         </div>
         
         <ScrollArea className="h-[400px]">
-          {notifications.length === 0 ? (
+          {notifications.length === 0 && invitations.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Bell className="w-12 h-12 text-muted-foreground mb-3" />
               <p className="text-muted-foreground">
@@ -133,6 +193,55 @@ export function NotificationsPopover() {
             </div>
           ) : (
             <div className="divide-y">
+              {/* Pending Invitations */}
+              {invitations.filter(i => i.status === 'pending').map((invitation) => (
+                <div
+                  key={invitation.id}
+                  className="p-4 bg-gradient-to-r from-blue-50/50 to-purple-50/50 border-l-4 border-blue-500"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0">
+                      <UserPlus className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="font-semibold text-sm" style={{ color: '#5C8599' }}>
+                          {invitation.type === 'professional_invite' ? '💼 Novo Convite Profissional' : '👨‍👩‍👧 Convite de Co-Responsável'}
+                        </p>
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-2">
+                        <strong>{invitation.fromUserName}</strong> convidou você para acompanhar{' '}
+                        <strong>{invitation.childName}</strong>
+                      </p>
+                      <div className="flex gap-2 mt-3">
+                        <Button
+                          size="sm"
+                          onClick={() => handleAcceptInvitation(invitation.id)}
+                          disabled={processingInvite === invitation.id}
+                          className="flex-1"
+                        >
+                          <Check className="w-3 h-3 mr-1" />
+                          {processingInvite === invitation.id ? 'Aceitando...' : 'Aceitar'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleRejectInvitation(invitation.id)}
+                          disabled={processingInvite === invitation.id}
+                        >
+                          <X className="w-3 h-3 mr-1" />
+                          Recusar
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        {formatDate(invitation.createdAt)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {/* Regular Notifications */}
               {notifications.map((notification) => (
                 <div
                   key={notification.id}

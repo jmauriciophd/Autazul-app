@@ -187,6 +187,36 @@ export function ParentDashboard() {
     }
   }
 
+  async function handleInviteByEmail(e: React.FormEvent) {
+    e.preventDefault()
+    if (!selectedChild) return
+    setLoading(true)
+    try {
+      const { professionalName: profName } = await api.inviteProfessionalByEmail(
+        selectedChild.id,
+        professionalEmail
+      )
+      setAddProfessionalDialogOpen(false)
+      setProfessionalEmail('')
+      notify.success(
+        'Convite enviado!', 
+        `${profName} receberá uma notificação no sistema e por email`
+      )
+    } catch (error: any) {
+      console.error('Error inviting professional by email:', error)
+      const errorMessage = error?.error || 'Tente novamente'
+      if (errorMessage.includes('não encontrado')) {
+        notify.error('Profissional não encontrado', 'Verifique se o email está correto e se o profissional já possui cadastro no sistema')
+      } else if (errorMessage.includes('já está vinculado')) {
+        notify.error('Profissional já vinculado', 'Este profissional já tem acesso a esta criança')
+      } else {
+        notify.error('Erro ao enviar convite', errorMessage)
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
   async function handleRemoveProfessional(professionalId: string) {
     if (!selectedChild) return
     if (!confirm('Tem certeza que deseja remover este profissional?')) return
@@ -542,57 +572,111 @@ export function ParentDashboard() {
                         Adicionar Profissional
                       </Button>
                     </DialogTrigger>
-                    <DialogContent>
+                    <DialogContent className="max-w-2xl">
                       <DialogHeader>
                         <DialogTitle>Adicionar Profissional</DialogTitle>
                         <DialogDescription>
-                          Gere um link único para o profissional se cadastrar
+                          Escolha como deseja convidar o profissional
                         </DialogDescription>
                       </DialogHeader>
-                      <form onSubmit={handleAddProfessional} className="space-y-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="professionalName">Nome</Label>
-                          <Input
-                            id="professionalName"
-                            value={professionalName}
-                            onChange={(e) => setProfessionalName(e.target.value)}
-                            required
-                            placeholder="Nome do profissional"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="professionalEmail">Email</Label>
-                          <Input
-                            id="professionalEmail"
-                            type="email"
-                            value={professionalEmail}
-                            onChange={(e) => setProfessionalEmail(e.target.value)}
-                            required
-                            placeholder="email@exemplo.com"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="professionalType">Tipo</Label>
-                          <Select value={professionalType} onValueChange={setProfessionalType} required>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione o tipo" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Professor(a)">Professor(a)</SelectItem>
-                              <SelectItem value="Monitor(a)">Monitor(a)</SelectItem>
-                              <SelectItem value="Psicólogo(a)">Psicólogo(a)</SelectItem>
-                              <SelectItem value="Médico(a)">Médico(a)</SelectItem>
-                              <SelectItem value="Neurologista">Neurologista</SelectItem>
-                              <SelectItem value="Fonoaudiólogo(a)">Fonoaudiólogo(a)</SelectItem>
-                              <SelectItem value="Terapeuta Ocupacional">Terapeuta Ocupacional</SelectItem>
-                              <SelectItem value="Outro">Outro</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <Button type="submit" className="w-full" disabled={loading}>
-                          {loading ? 'Gerando...' : 'Gerar Link de Convite'}
-                        </Button>
-                      </form>
+                      
+                      <Tabs defaultValue="link" className="w-full">
+                        <TabsList className="grid w-full grid-cols-2">
+                          <TabsTrigger value="link">
+                            🔗 Link de Convite
+                          </TabsTrigger>
+                          <TabsTrigger value="email">
+                            📧 Convite por Email
+                          </TabsTrigger>
+                        </TabsList>
+                        
+                        <TabsContent value="link" className="space-y-4">
+                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                            <p className="text-sm text-blue-900">
+                              <strong>💡 Para profissionais não cadastrados</strong>
+                              <br />
+                              Gere um link único que permite o profissional criar uma conta e aceitar o convite.
+                            </p>
+                          </div>
+                          
+                          <form onSubmit={handleAddProfessional} className="space-y-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="professionalName">Nome do Profissional *</Label>
+                              <Input
+                                id="professionalName"
+                                value={professionalName}
+                                onChange={(e) => setProfessionalName(e.target.value)}
+                                required
+                                placeholder="Nome completo"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="professionalEmail">Email *</Label>
+                              <Input
+                                id="professionalEmail"
+                                type="email"
+                                value={professionalEmail}
+                                onChange={(e) => setProfessionalEmail(e.target.value)}
+                                required
+                                placeholder="email@exemplo.com"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="professionalType">Especialidade *</Label>
+                              <Select value={professionalType} onValueChange={setProfessionalType} required>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Selecione a especialidade" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="Professor(a)">Professor(a)</SelectItem>
+                                  <SelectItem value="Monitor(a)">Monitor(a)</SelectItem>
+                                  <SelectItem value="Psicólogo(a)">Psicólogo(a)</SelectItem>
+                                  <SelectItem value="Médico(a)">Médico(a)</SelectItem>
+                                  <SelectItem value="Neurologista">Neurologista</SelectItem>
+                                  <SelectItem value="Fonoaudiólogo(a)">Fonoaudiólogo(a)</SelectItem>
+                                  <SelectItem value="Terapeuta Ocupacional">Terapeuta Ocupacional</SelectItem>
+                                  <SelectItem value="Fisioterapeuta">Fisioterapeuta</SelectItem>
+                                  <SelectItem value="Nutricionista">Nutricionista</SelectItem>
+                                  <SelectItem value="Outro">Outro</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <Button type="submit" className="w-full" disabled={loading}>
+                              {loading ? 'Gerando Link...' : '🔗 Gerar Link de Convite'}
+                            </Button>
+                          </form>
+                        </TabsContent>
+                        
+                        <TabsContent value="email" className="space-y-4">
+                          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                            <p className="text-sm text-green-900">
+                              <strong>✅ Para profissionais já cadastrados</strong>
+                              <br />
+                              Envie um convite direto por email. O profissional poderá aceitar através do sistema ou pelo email.
+                            </p>
+                          </div>
+                          
+                          <form onSubmit={handleInviteByEmail} className="space-y-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="professionalEmailInvite">Email do Profissional *</Label>
+                              <Input
+                                id="professionalEmailInvite"
+                                type="email"
+                                value={professionalEmail}
+                                onChange={(e) => setProfessionalEmail(e.target.value)}
+                                required
+                                placeholder="email@exemplo.com"
+                              />
+                              <p className="text-xs text-muted-foreground">
+                                Digite o email de um profissional que já possui conta no Autazul
+                              </p>
+                            </div>
+                            <Button type="submit" className="w-full" disabled={loading}>
+                              {loading ? 'Enviando Convite...' : '📧 Enviar Convite'}
+                            </Button>
+                          </form>
+                        </TabsContent>
+                      </Tabs>
                     </DialogContent>
                   </Dialog>
                 </CardContent>

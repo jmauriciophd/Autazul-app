@@ -116,6 +116,41 @@ export class ApiClient {
     )
   }
 
+  async inviteProfessionalByEmail(childId: string, professionalEmail: string) {
+    return this.request<{ success: boolean; message: string; professionalName: string }>(
+      '/professionals/invite-by-email',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          childId,
+          professionalEmail,
+        }),
+      }
+    )
+  }
+
+  async getPendingInvitations() {
+    return this.request<{ invitations: any[] }>('/invitations/pending')
+  }
+
+  async acceptInvitation(invitationId: string) {
+    return this.request<{ success: boolean; message: string }>(
+      `/invitations/${invitationId}/accept`,
+      {
+        method: 'POST',
+      }
+    )
+  }
+
+  async rejectInvitation(invitationId: string) {
+    return this.request<{ success: boolean; message: string }>(
+      `/invitations/${invitationId}/reject`,
+      {
+        method: 'POST',
+      }
+    )
+  }
+
   async getInvite(token: string) {
     return this.request<{ invite: any }>(`/professionals/invite/${token}`)
   }
@@ -187,6 +222,19 @@ export class ApiClient {
       {
         method: 'POST',
         body: JSON.stringify({ coParentEmail, coParentName }),
+      }
+    )
+  }
+
+  async inviteCoParentByEmail(childId: string, coParentEmail: string) {
+    return this.request<{ success: boolean; message: string; coParentName: string }>(
+      '/coparents/invite-by-email',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          childId,
+          coParentEmail,
+        }),
       }
     )
   }

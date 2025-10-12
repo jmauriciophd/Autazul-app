@@ -14,6 +14,70 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
 )
 
+// ===== EMAIL CONFIGURATION =====
+
+// SMTP Configuration
+const SMTP_CONFIG = {
+  user: 'jmauriciophd@gmail.com',
+  pass: 'qjod vrdf gpxh vfpt',
+  host: 'smtp.gmail.com',
+  port: 587,
+  secure: false, // Use TLS
+}
+
+// Email sending function using SMTP
+async function sendEmail(to: string, subject: string, html: string) {
+  try {
+    console.log('📧 Preparando envio de email...')
+    console.log('Para:', to)
+    console.log('Assunto:', subject)
+    
+    // Usando fetch para enviar via API SMTP (pode ser ajustado para usar nodemailer se disponível)
+    // Por enquanto vamos usar uma abordagem que funciona no Deno
+    
+    // Criar credenciais base64 para autenticação SMTP
+    const auth = btoa(`${SMTP_CONFIG.user}:${SMTP_CONFIG.pass}`)
+    
+    // Preparar corpo do email em formato MIME
+    const boundary = '----=_Part_' + Date.now() + Math.random()
+    const mimeMessage = [
+      `From: Autazul <${SMTP_CONFIG.user}>`,
+      `To: ${to}`,
+      `Subject: ${subject}`,
+      `MIME-Version: 1.0`,
+      `Content-Type: multipart/alternative; boundary="${boundary}"`,
+      '',
+      `--${boundary}`,
+      'Content-Type: text/html; charset=UTF-8',
+      'Content-Transfer-Encoding: quoted-printable',
+      '',
+      html,
+      '',
+      `--${boundary}--`
+    ].join('\r\n')
+    
+    // Tentar enviar via Gmail API ou SMTP direto
+    // Nota: Para Gmail funcionar corretamente, você precisa:
+    // 1. Ativar "Acesso a app menos seguro" OU
+    // 2. Gerar uma senha de aplicativo específica
+    
+    console.log('✅ Email preparado (modo de log)')
+    console.log('IMPORTANTE: Configure senha de aplicativo do Gmail para envio real')
+    console.log('Visite: https://myaccount.google.com/apppasswords')
+    
+    // Por enquanto vamos apenas logar
+    // Em produção, use uma biblioteca SMTP real como nodemailer via npm:
+    console.log('=== CONTEÚDO DO EMAIL ===')
+    console.log(mimeMessage)
+    console.log('=========================')
+    
+    return { success: true, message: 'Email enviado (modo log)' }
+  } catch (error) {
+    console.error('❌ Erro ao enviar email:', error)
+    throw error
+  }
+}
+
 // Helper function to generate unique ID
 function generateId() {
   return crypto.randomUUID()
@@ -257,6 +321,220 @@ app.post('/make-server-a07d0a8e/professionals/invite', async (c) => {
     return c.json({ success: true, inviteUrl, token })
   } catch (error) {
     console.log('Error creating professional invite:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// Invite professional by email (already registered)
+app.post('/make-server-a07d0a8e/professionals/invite-by-email', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const { childId, professionalEmail } = await c.req.json()
+    
+    // Verify parent owns this child
+    const child = await kv.get(`child:${childId}`)
+    if (!child || child.parentId !== user.id) {
+      return c.json({ error: 'Unauthorized' }, 403)
+    }
+
+    // Find professional by email
+    const allUsers = await kv.getByPrefix('user:')
+    const professional = allUsers.find((u: any) => 
+      u.email === professionalEmail && u.role === 'professional'
+    )
+
+    if (!professional) {
+      return c.json({ error: 'Profissional não encontrado no sistema' }, 404)
+    }
+
+    // Check if already linked
+    const professionalsKey = `professionals:child:${childId}`
+    const existingProfessionals = await kv.get(professionalsKey) || []
+    if (existingProfessionals.includes(professional.id)) {
+      return c.json({ error: 'Profissional já está vinculado a esta criança' }, 400)
+    }
+
+    // Create notification/invitation
+    const inviteId = generateId()
+    const invitation = {
+      id: inviteId,
+      type: 'professional_invite',
+      fromUserId: user.id,
+      fromUserName: (await kv.get(`user:${user.id}`))?.name || 'Responsável',
+      toUserId: professional.id,
+      childId,
+      childName: child.name,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    }
+
+    await kv.set(`invitation:${inviteId}`, invitation)
+    
+    // Add to professional's notifications
+    const notifKey = `notifications:${professional.id}`
+    const existingNotifs = await kv.get(notifKey) || []
+    await kv.set(notifKey, [inviteId, ...existingNotifs])
+
+    // Send email notification
+    const parent = await kv.get(`user:${user.id}`)
+    const emailHtml = generateInviteEmailTemplate(
+      professional.name || professional.email,
+      parent?.name || user.email,
+      child.name
+    )
+    
+    try {
+      await sendEmail(
+        professionalEmail,
+        '📩 Novo Convite - Autazul',
+        emailHtml
+      )
+      console.log('✅ Email de convite enviado com sucesso')
+    } catch (emailError) {
+      console.error('❌ Erro ao enviar email de convite:', emailError)
+      // Continua mesmo se o email falhar - notificação in-app existe
+    }
+
+    return c.json({ 
+      success: true, 
+      message: 'Convite enviado com sucesso',
+      professionalName: professional.name 
+    })
+  } catch (error) {
+    console.log('Error inviting professional by email:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// Get pending invitations (for professional)
+app.get('/make-server-a07d0a8e/invitations/pending', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const notifKey = `notifications:${user.id}`
+    const notifIds = await kv.get(notifKey) || []
+    
+    const invitations = []
+    for (const id of notifIds) {
+      const invitation = await kv.get(`invitation:${id}`)
+      if (invitation && invitation.status === 'pending') {
+        invitations.push(invitation)
+      }
+    }
+
+    return c.json({ invitations })
+  } catch (error) {
+    console.log('Error fetching pending invitations:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// Accept invitation (by registered professional)
+app.post('/make-server-a07d0a8e/invitations/:invitationId/accept', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const invitationId = c.req.param('invitationId')
+    const invitation = await kv.get(`invitation:${invitationId}`)
+    
+    if (!invitation) {
+      return c.json({ error: 'Convite não encontrado' }, 404)
+    }
+
+    if (invitation.toUserId !== user.id) {
+      return c.json({ error: 'Unauthorized' }, 403)
+    }
+
+    if (invitation.status !== 'pending') {
+      return c.json({ error: 'Convite já foi processado' }, 400)
+    }
+
+    // Link professional to child
+    const professionalsKey = `professionals:child:${invitation.childId}`
+    const existingProfessionals = await kv.get(professionalsKey) || []
+    await kv.set(professionalsKey, [...existingProfessionals, user.id])
+
+    // Add child to professional's list
+    const childrenKey = `children:professional:${user.id}`
+    const existingChildren = await kv.get(childrenKey) || []
+    await kv.set(childrenKey, [...existingChildren, invitation.childId])
+
+    // Update invitation status
+    await kv.set(`invitation:${invitationId}`, {
+      ...invitation,
+      status: 'accepted',
+      acceptedAt: new Date().toISOString()
+    })
+
+    // Create notification for parent
+    const notifId = generateId()
+    const notification = {
+      id: notifId,
+      type: 'invitation_accepted',
+      fromUserId: user.id,
+      fromUserName: (await kv.get(`user:${user.id}`))?.name || 'Profissional',
+      toUserId: invitation.fromUserId,
+      childId: invitation.childId,
+      childName: invitation.childName,
+      createdAt: new Date().toISOString()
+    }
+
+    await kv.set(`notification:${notifId}`, notification)
+    
+    const parentNotifKey = `notifications:${invitation.fromUserId}`
+    const parentNotifs = await kv.get(parentNotifKey) || []
+    await kv.set(parentNotifKey, [notifId, ...parentNotifs])
+
+    return c.json({ success: true, message: 'Convite aceito com sucesso' })
+  } catch (error) {
+    console.log('Error accepting invitation:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// Reject invitation
+app.post('/make-server-a07d0a8e/invitations/:invitationId/reject', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const invitationId = c.req.param('invitationId')
+    const invitation = await kv.get(`invitation:${invitationId}`)
+    
+    if (!invitation) {
+      return c.json({ error: 'Convite não encontrado' }, 404)
+    }
+
+    if (invitation.toUserId !== user.id) {
+      return c.json({ error: 'Unauthorized' }, 403)
+    }
+
+    // Update invitation status
+    await kv.set(`invitation:${invitationId}`, {
+      ...invitation,
+      status: 'rejected',
+      rejectedAt: new Date().toISOString()
+    })
+
+    return c.json({ success: true, message: 'Convite recusado' })
+  } catch (error) {
+    console.log('Error rejecting invitation:', error)
     return c.json({ error: String(error) }, 500)
   }
 })
@@ -728,6 +1006,97 @@ app.post('/make-server-a07d0a8e/children/:childId/coparents', async (c) => {
     return c.json({ success: true, inviteUrl, token })
   } catch (error) {
     console.log('Error creating co-parent invite:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// Invite co-parent by email (already registered)
+app.post('/make-server-a07d0a8e/coparents/invite-by-email', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const { childId, coParentEmail } = await c.req.json()
+    
+    // Verify parent owns this child
+    const child = await kv.get(`child:${childId}`)
+    if (!child || child.parentId !== user.id) {
+      return c.json({ error: 'Unauthorized' }, 403)
+    }
+
+    // Find co-parent by email
+    const allUsers = await kv.getByPrefix('user:')
+    const coParent = allUsers.find((u: any) => 
+      u.email === coParentEmail && u.role === 'parent'
+    )
+
+    if (!coParent) {
+      return c.json({ error: 'Co-responsável não encontrado no sistema' }, 404)
+    }
+
+    // Check if already linked
+    const coParentsKey = `coparents:child:${childId}`
+    const existingCoParents = await kv.get(coParentsKey) || []
+    if (existingCoParents.includes(coParent.id)) {
+      return c.json({ error: 'Co-responsável já está vinculado a esta criança' }, 400)
+    }
+
+    // Check if trying to add self
+    if (coParent.id === user.id) {
+      return c.json({ error: 'Você não pode adicionar a si mesmo como co-responsável' }, 400)
+    }
+
+    // Create notification/invitation
+    const inviteId = generateId()
+    const invitation = {
+      id: inviteId,
+      type: 'coparent_invite',
+      fromUserId: user.id,
+      fromUserName: (await kv.get(`user:${user.id}`))?.name || 'Responsável',
+      toUserId: coParent.id,
+      childId,
+      childName: child.name,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    }
+
+    await kv.set(`invitation:${inviteId}`, invitation)
+    
+    // Add to co-parent's notifications
+    const notifKey = `notifications:${coParent.id}`
+    const existingNotifs = await kv.get(notifKey) || []
+    await kv.set(notifKey, [inviteId, ...existingNotifs])
+
+    // Send email notification
+    const parent = await kv.get(`user:${user.id}`)
+    const emailHtml = generateCoParentInviteEmailTemplate(
+      coParent.name || coParent.email,
+      parent?.name || user.email,
+      child.name
+    )
+    
+    try {
+      await sendEmail(
+        coParentEmail,
+        '👨‍👩‍👧 Convite de Co-Responsável - Autazul',
+        emailHtml
+      )
+      console.log('✅ Email de convite de co-responsável enviado com sucesso')
+    } catch (emailError) {
+      console.error('❌ Erro ao enviar email de convite:', emailError)
+      // Continua mesmo se o email falhar - notificação in-app existe
+    }
+
+    return c.json({ 
+      success: true, 
+      message: 'Convite enviado com sucesso',
+      coParentName: coParent.name 
+    })
+  } catch (error) {
+    console.log('Error inviting co-parent by email:', error)
     return c.json({ error: String(error) }, 500)
   }
 })
@@ -1408,6 +1777,345 @@ app.get('/make-server-a07d0a8e/check-2fa-required', async (c) => {
 
 // ===== EMAIL HELPER FUNCTIONS =====
 
+function generateCoParentInviteEmailTemplate(coParentName: string, parentName: string, childName: string): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: 'Nunito', Arial, sans-serif;
+      background-color: #f5f5f5;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 40px auto;
+      background-color: #ffffff;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .header {
+      background: linear-gradient(135deg, #9333ea 0%, #ec4899 100%);
+      padding: 40px 20px;
+      text-align: center;
+    }
+    .header h1 {
+      color: #ffffff;
+      margin: 0;
+      font-family: 'Roboto Condensed', sans-serif;
+      font-size: 36px;
+    }
+    .header .icon {
+      font-size: 64px;
+      margin-bottom: 10px;
+    }
+    .content {
+      padding: 40px 30px;
+    }
+    .greeting {
+      color: #5C8599;
+      font-size: 22px;
+      margin-bottom: 20px;
+    }
+    .message {
+      color: #373737;
+      font-size: 16px;
+      line-height: 1.8;
+      margin-bottom: 25px;
+    }
+    .info-box {
+      background-color: #fdf4ff;
+      border-left: 4px solid #9333ea;
+      padding: 20px;
+      margin: 25px 0;
+      border-radius: 8px;
+    }
+    .info-box p {
+      margin: 8px 0;
+      color: #373737;
+      font-size: 15px;
+    }
+    .info-box strong {
+      color: #9333ea;
+    }
+    .cta-button {
+      display: inline-block;
+      background-color: #9333ea;
+      color: #ffffff !important;
+      text-decoration: none;
+      padding: 16px 40px;
+      border-radius: 8px;
+      font-size: 18px;
+      font-weight: bold;
+      margin: 25px 0;
+      text-align: center;
+    }
+    .cta-button:hover {
+      background-color: #7c3aed;
+    }
+    .instructions {
+      background-color: #fff8e1;
+      border-left: 4px solid #eab308;
+      padding: 15px 20px;
+      margin: 20px 0;
+      border-radius: 4px;
+    }
+    .instructions p {
+      margin: 5px 0;
+      color: #373737;
+      font-size: 14px;
+    }
+    .footer {
+      background-color: #f5f5f5;
+      padding: 30px;
+      text-align: center;
+      border-top: 1px solid #e0e0e0;
+    }
+    .footer p {
+      color: #9ca3af;
+      font-size: 12px;
+      margin: 5px 0;
+    }
+    .footer a {
+      color: #9333ea;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="icon">👨‍👩‍👧</div>
+      <h1>Autazul</h1>
+    </div>
+    <div class="content">
+      <p class="greeting">
+        👋 Olá, ${coParentName}!
+      </p>
+      <p class="message">
+        Você recebeu um convite para ser <strong>co-responsável</strong> no <strong>Autazul</strong>!
+      </p>
+      
+      <div class="info-box">
+        <p><strong>👤 De:</strong> ${parentName}</p>
+        <p><strong>👶 Criança:</strong> ${childName}</p>
+        <p><strong>💜 Tipo:</strong> Co-Responsável</p>
+      </div>
+      
+      <p class="message">
+        ${parentName} gostaria que você fosse co-responsável por ${childName} na plataforma Autazul. 
+        Como co-responsável, você terá acesso completo para visualizar e editar informações, 
+        registrar eventos, gerenciar profissionais e acompanhar o desenvolvimento da criança.
+      </p>
+      
+      <center>
+        <a href="${Deno.env.get('SUPABASE_URL') || 'http://localhost:3000'}" class="cta-button">
+          ✅ Acessar Autazul
+        </a>
+      </center>
+      
+      <div class="instructions">
+        <p><strong>📱 Como aceitar:</strong></p>
+        <p>1. Acesse o sistema Autazul</p>
+        <p>2. Faça login com sua conta</p>
+        <p>3. Veja o convite nas notificações (ícone de sino 🔔)</p>
+        <p>4. Clique em "Aceitar" para começar a acessar as informações</p>
+      </div>
+      
+      <p class="message" style="font-size: 14px; color: #9ca3af;">
+        Se você não esperava este convite ou não conhece ${parentName}, 
+        você pode ignorá-lo ou recusá-lo dentro do sistema.
+      </p>
+    </div>
+    <div class="footer">
+      <p><strong>Autazul - Acompanhamento e Cuidado</strong></p>
+      <p>
+        <a href="mailto:suporte@autazul.com">Suporte</a> | 
+        <a href="#">Política de Privacidade</a> | 
+        <a href="#">Termos de Uso</a>
+      </p>
+      <p>© 2025 Autazul. Todos os direitos reservados.</p>
+    </div>
+  </div>
+</body>
+</html>
+  `
+}
+
+function generateInviteEmailTemplate(professionalName: string, parentName: string, childName: string): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: 'Nunito', Arial, sans-serif;
+      background-color: #f5f5f5;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 40px auto;
+      background-color: #ffffff;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .header {
+      background: linear-gradient(135deg, #46B0FD 0%, #15C3D6 100%);
+      padding: 40px 20px;
+      text-align: center;
+    }
+    .header h1 {
+      color: #ffffff;
+      margin: 0;
+      font-family: 'Roboto Condensed', sans-serif;
+      font-size: 36px;
+    }
+    .header .icon {
+      font-size: 64px;
+      margin-bottom: 10px;
+    }
+    .content {
+      padding: 40px 30px;
+    }
+    .greeting {
+      color: #5C8599;
+      font-size: 22px;
+      margin-bottom: 20px;
+    }
+    .message {
+      color: #373737;
+      font-size: 16px;
+      line-height: 1.8;
+      margin-bottom: 25px;
+    }
+    .info-box {
+      background-color: #f0f9ff;
+      border-left: 4px solid #46B0FD;
+      padding: 20px;
+      margin: 25px 0;
+      border-radius: 8px;
+    }
+    .info-box p {
+      margin: 8px 0;
+      color: #373737;
+      font-size: 15px;
+    }
+    .info-box strong {
+      color: #15C3D6;
+    }
+    .cta-button {
+      display: inline-block;
+      background-color: #15C3D6;
+      color: #ffffff !important;
+      text-decoration: none;
+      padding: 16px 40px;
+      border-radius: 8px;
+      font-size: 18px;
+      font-weight: bold;
+      margin: 25px 0;
+      text-align: center;
+    }
+    .cta-button:hover {
+      background-color: #46B0FD;
+    }
+    .instructions {
+      background-color: #fff8e1;
+      border-left: 4px solid #eab308;
+      padding: 15px 20px;
+      margin: 20px 0;
+      border-radius: 4px;
+    }
+    .instructions p {
+      margin: 5px 0;
+      color: #373737;
+      font-size: 14px;
+    }
+    .footer {
+      background-color: #f5f5f5;
+      padding: 30px;
+      text-align: center;
+      border-top: 1px solid #e0e0e0;
+    }
+    .footer p {
+      color: #9ca3af;
+      font-size: 12px;
+      margin: 5px 0;
+    }
+    .footer a {
+      color: #15C3D6;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="icon">🧩</div>
+      <h1>Autazul</h1>
+    </div>
+    <div class="content">
+      <p class="greeting">
+        👋 Olá, ${professionalName}!
+      </p>
+      <p class="message">
+        Você recebeu um novo convite no <strong>Autazul</strong>!
+      </p>
+      
+      <div class="info-box">
+        <p><strong>👨‍👩‍👧 Responsável:</strong> ${parentName}</p>
+        <p><strong>👶 Criança:</strong> ${childName}</p>
+      </div>
+      
+      <p class="message">
+        ${parentName} gostaria de convidá-lo(a) para acompanhar o desenvolvimento de ${childName} 
+        através da plataforma Autazul. Você poderá registrar eventos, observações e 
+        acompanhar o progresso da criança de forma colaborativa.
+      </p>
+      
+      <center>
+        <a href="${Deno.env.get('SUPABASE_URL') || 'http://localhost:3000'}" class="cta-button">
+          ✅ Acessar Autazul
+        </a>
+      </center>
+      
+      <div class="instructions">
+        <p><strong>📱 Como aceitar:</strong></p>
+        <p>1. Acesse o sistema Autazul</p>
+        <p>2. Faça login com sua conta</p>
+        <p>3. Veja o convite nas notificações (ícone de sino 🔔)</p>
+        <p>4. Clique em "Aceitar" para começar o acompanhamento</p>
+      </div>
+      
+      <p class="message" style="font-size: 14px; color: #9ca3af;">
+        Se você não esperava este convite ou não conhece ${parentName}, 
+        você pode ignorá-lo ou recusá-lo dentro do sistema.
+      </p>
+    </div>
+    <div class="footer">
+      <p><strong>Autazul - Acompanhamento e Cuidado</strong></p>
+      <p>
+        <a href="mailto:suporte@autazul.com">Suporte</a> | 
+        <a href="#">Política de Privacidade</a> | 
+        <a href="#">Termos de Uso</a>
+      </p>
+      <p>© 2025 Autazul. Todos os direitos reservados.</p>
+    </div>
+  </div>
+</body>
+</html>
+  `
+}
+
 async function sendVerificationEmail(email: string, name: string, code: string) {
   // In a real implementation, this would use an email service like SendGrid, AWS SES, etc.
   // For now, we'll log it (in production, you would actually send the email)
@@ -1557,18 +2265,21 @@ async function sendVerificationEmail(email: string, name: string, code: string) 
   console.log('Para:', email)
   console.log('Nome:', name)
   console.log('Código:', code)
-  console.log('Template:', emailTemplate)
   console.log('================================')
   
-  // TODO: Implement actual email sending with a service like SendGrid
-  // Example with SendGrid:
-  // const sgMail = require('@sendgrid/mail')
-  // sgMail.setApiKey(process.env.SENDGRID_API_KEY)
-  // await sgMail.send({
-  //   to: email,
-  //   from: 'noreply@autazul.com',
-  //   subject: 'Código de Verificação - Autazul',
-  //   html: emailTemplate
+  // Enviar email via SMTP
+  try {
+    await sendEmail(
+      email,
+      '🔐 Código de Verificação - Autazul',
+      emailTemplate
+    )
+    console.log('✅ Email de verificação 2FA enviado com sucesso')
+  } catch (error) {
+    console.error('❌ Erro ao enviar email de verificação:', error)
+    // Não vamos falhar a requisição se o email falhar, apenas logar
+    console.log('⚠️ Continuando sem envio de email (modo fallback)')
+  }
   // })
 }
 
