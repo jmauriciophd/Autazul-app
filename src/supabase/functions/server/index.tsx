@@ -32,49 +32,78 @@ async function sendEmail(to: string, subject: string, html: string) {
     console.log('Para:', to)
     console.log('Assunto:', subject)
     
-    // Usando fetch para enviar via API SMTP (pode ser ajustado para usar nodemailer se disponível)
-    // Por enquanto vamos usar uma abordagem que funciona no Deno
+    // IMPORTANTE: Para envio real de emails, você tem algumas opções:
     
-    // Criar credenciais base64 para autenticação SMTP
-    const auth = btoa(`${SMTP_CONFIG.user}:${SMTP_CONFIG.pass}`)
+    // OPÇÃO 1: Usar SendGrid (Recomendado para produção)
+    // const SENDGRID_API_KEY = Deno.env.get('SENDGRID_API_KEY')
+    // if (SENDGRID_API_KEY) {
+    //   const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+    //     method: 'POST',
+    //     headers: {
+    //       'Authorization': `Bearer ${SENDGRID_API_KEY}`,
+    //       'Content-Type': 'application/json',
+    //     },
+    //     body: JSON.stringify({
+    //       personalizations: [{ to: [{ email: to }] }],
+    //       from: { email: 'noreply@autazul.com', name: 'Autazul' },
+    //       subject: subject,
+    //       content: [{ type: 'text/html', value: html }]
+    //     })
+    //   })
+    //   if (response.ok) {
+    //     console.log('✅ Email enviado via SendGrid')
+    //     return { success: true }
+    //   }
+    // }
     
-    // Preparar corpo do email em formato MIME
-    const boundary = '----=_Part_' + Date.now() + Math.random()
-    const mimeMessage = [
-      `From: Autazul <${SMTP_CONFIG.user}>`,
-      `To: ${to}`,
-      `Subject: ${subject}`,
-      `MIME-Version: 1.0`,
-      `Content-Type: multipart/alternative; boundary="${boundary}"`,
-      '',
-      `--${boundary}`,
-      'Content-Type: text/html; charset=UTF-8',
-      'Content-Transfer-Encoding: quoted-printable',
-      '',
-      html,
-      '',
-      `--${boundary}--`
-    ].join('\r\n')
+    // OPÇÃO 2: Usar Resend (Alternativa simples)
+    // const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
+    // if (RESEND_API_KEY) {
+    //   const response = await fetch('https://api.resend.com/emails', {
+    //     method: 'POST',
+    //     headers: {
+    //       'Authorization': `Bearer ${RESEND_API_KEY}`,
+    //       'Content-Type': 'application/json',
+    //     },
+    //     body: JSON.stringify({
+    //       from: 'Autazul <noreply@autazul.com>',
+    //       to: [to],
+    //       subject: subject,
+    //       html: html
+    //     })
+    //   })
+    //   if (response.ok) {
+    //     console.log('✅ Email enviado via Resend')
+    //     return { success: true }
+    //   }
+    // }
     
-    // Tentar enviar via Gmail API ou SMTP direto
-    // Nota: Para Gmail funcionar corretamente, você precisa:
-    // 1. Ativar "Acesso a app menos seguro" OU
-    // 2. Gerar uma senha de aplicativo específica
+    // OPÇÃO 3: SMTP via Gmail (Requer senha de aplicativo)
+    // Visite: https://myaccount.google.com/apppasswords
+    // Gere uma senha de aplicativo e substitua 'Akmsdsdcbhtj1'
     
-    console.log('✅ Email preparado (modo de log)')
-    console.log('IMPORTANTE: Configure senha de aplicativo do Gmail para envio real')
-    console.log('Visite: https://myaccount.google.com/apppasswords')
+    // Por enquanto, vamos logar o email no console
+    console.log('⚠️ MODO DE DESENVOLVIMENTO - Email não será enviado')
+    console.log('ℹ️ Para envio real, configure uma das opções acima')
+    console.log('')
+    console.log('=== PREVIEW DO EMAIL ===')
+    console.log('De: Autazul <noreply@autazul.com>')
+    console.log('Para:', to)
+    console.log('Assunto:', subject)
+    console.log('---')
+    console.log(html.substring(0, 500) + '...')
+    console.log('=======================')
+    console.log('')
     
-    // Por enquanto vamos apenas logar
-    // Em produção, use uma biblioteca SMTP real como nodemailer via npm:
-    console.log('=== CONTEÚDO DO EMAIL ===')
-    console.log(mimeMessage)
-    console.log('=========================')
+    // Retornar sucesso para não bloquear o fluxo
+    // Mas o email não será enviado de verdade
+    return { success: true, message: 'Email preparado (modo dev - não enviado)' }
     
-    return { success: true, message: 'Email enviado (modo log)' }
   } catch (error) {
-    console.error('❌ Erro ao enviar email:', error)
-    throw error
+    console.error('❌ Erro ao preparar email:', error)
+    // Não falhar - apenas logar erro
+    console.log('⚠️ Continuando sem envio de email')
+    return { success: false, message: 'Email não enviado' }
   }
 }
 
@@ -1843,6 +1872,156 @@ app.put('/make-server-a07d0a8e/notifications/read-all', async (c) => {
     return c.json({ success: true })
   } catch (error) {
     console.log('Error marking all notifications as read:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// ===== INVITATION ROUTES =====
+
+// Get pending invitations for user
+app.get('/make-server-a07d0a8e/invitations/pending', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    // Get all invitations
+    const allInvitations = await kv.getByPrefix('invitation:')
+    const userInvitations = []
+
+    for (const invData of allInvitations) {
+      const invitation = invData.value || invData
+      if (invitation && invitation.toUserId === user.id && invitation.status === 'pending') {
+        userInvitations.push(invitation)
+      }
+    }
+
+    // Sort by creation date (newest first)
+    userInvitations.sort((a, b) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )
+
+    return c.json({ invitations: userInvitations })
+  } catch (error) {
+    console.log('Error fetching pending invitations:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// Accept professional or co-parent invitation
+app.post('/make-server-a07d0a8e/invitations/:invitationId/accept', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const invitationId = c.req.param('invitationId')
+    const invitation = await kv.get(`invitation:${invitationId}`)
+    
+    if (!invitation) {
+      return c.json({ error: 'Convite não encontrado' }, 404)
+    }
+
+    if (invitation.toUserId !== user.id) {
+      return c.json({ error: 'Unauthorized' }, 403)
+    }
+
+    if (invitation.status !== 'pending') {
+      return c.json({ error: 'Convite já foi processado' }, 400)
+    }
+
+    // Handle based on invitation type
+    if (invitation.type === 'professional_invite') {
+      // Add professional to child
+      const childId = invitation.childId
+      
+      // Add to professionals list
+      const professionalsKey = `professionals:child:${childId}`
+      const existingProfessionals = await kv.get(professionalsKey) || []
+      if (!existingProfessionals.includes(user.id)) {
+        await kv.set(professionalsKey, [...existingProfessionals, user.id])
+      }
+
+      // Add to professional's children list
+      const childrenKey = `children:professional:${user.id}`
+      const existingChildren = await kv.get(childrenKey) || []
+      if (!existingChildren.includes(childId)) {
+        await kv.set(childrenKey, [...existingChildren, childId])
+      }
+
+      // Create professional link
+      await kv.set(`professional:${user.id}:child:${childId}`, {
+        professionalId: user.id,
+        childId,
+        professionalType: invitation.professionalType || 'Profissional',
+        createdAt: new Date().toISOString()
+      })
+    } else if (invitation.type === 'coparent_invite') {
+      // Add to child's co-parents list
+      const coParentsKey = `coparents:child:${invitation.childId}`
+      const existingCoParents = await kv.get(coParentsKey) || []
+      if (!existingCoParents.includes(user.id)) {
+        await kv.set(coParentsKey, [...existingCoParents, user.id])
+      }
+    }
+
+    // Update invitation status
+    await kv.set(`invitation:${invitationId}`, {
+      ...invitation,
+      status: 'accepted',
+      acceptedAt: new Date().toISOString()
+    })
+
+    // Create notification for inviter
+    await createNotification(
+      invitation.fromUserId,
+      'invitation_accepted',
+      'Convite aceito',
+      `${(await kv.get(`user:${user.id}`))?.name || 'Usuário'} aceitou seu convite`,
+      invitation.childId
+    )
+
+    return c.json({ success: true, message: 'Convite aceito com sucesso' })
+  } catch (error) {
+    console.log('Error accepting invitation:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// Reject invitation
+app.post('/make-server-a07d0a8e/invitations/:invitationId/reject', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const invitationId = c.req.param('invitationId')
+    const invitation = await kv.get(`invitation:${invitationId}`)
+    
+    if (!invitation) {
+      return c.json({ error: 'Convite não encontrado' }, 404)
+    }
+
+    if (invitation.toUserId !== user.id) {
+      return c.json({ error: 'Unauthorized' }, 403)
+    }
+
+    // Update invitation status
+    await kv.set(`invitation:${invitationId}`, {
+      ...invitation,
+      status: 'rejected',
+      rejectedAt: new Date().toISOString()
+    })
+
+    return c.json({ success: true, message: 'Convite recusado' })
+  } catch (error) {
+    console.log('Error rejecting invitation:', error)
     return c.json({ error: String(error) }, 500)
   }
 })

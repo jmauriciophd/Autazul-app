@@ -41,10 +41,12 @@ export function NotificationsPopover() {
   const [processingInvite, setProcessingInvite] = useState<string | null>(null)
 
   useEffect(() => {
+    console.log('🚀 NotificationsPopover montado - iniciando carregamento')
     loadNotifications()
     loadInvitations()
     // Poll for new notifications every 30 seconds
     const interval = setInterval(() => {
+      console.log('🔄 Atualizando notificações (auto-refresh 30s)')
       loadNotifications()
       loadInvitations()
     }, 30000)
@@ -59,19 +61,24 @@ export function NotificationsPopover() {
 
   async function loadNotifications() {
     try {
+      console.log('🔔 Carregando notificações...')
       const { notifications: data } = await api.getNotifications()
+      console.log('✅ Notificações carregadas:', data?.length || 0)
       setNotifications(data || [])
     } catch (error) {
-      console.error('Error loading notifications:', error)
+      console.error('❌ Error loading notifications:', error)
     }
   }
 
   async function loadInvitations() {
     try {
+      console.log('📬 Carregando convites...')
       const { invitations: data } = await api.getPendingInvitations()
+      console.log('✅ Convites carregados:', data?.length || 0)
+      console.log('Convites:', data)
       setInvitations(data || [])
     } catch (error) {
-      console.error('Error loading invitations:', error)
+      console.error('❌ Error loading invitations:', error)
     }
   }
 

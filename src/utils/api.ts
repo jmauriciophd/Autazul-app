@@ -365,6 +365,29 @@ export class ApiClient {
     })
   }
 
+  // Invitations
+  async getPendingInvitations() {
+    return this.request<{ invitations: any[] }>('/invitations/pending')
+  }
+
+  async acceptInvitation(invitationId: string) {
+    return this.request<{ success: boolean; message: string }>(
+      `/invitations/${invitationId}/accept`,
+      {
+        method: 'POST',
+      }
+    )
+  }
+
+  async rejectInvitation(invitationId: string) {
+    return this.request<{ success: boolean; message: string }>(
+      `/invitations/${invitationId}/reject`,
+      {
+        method: 'POST',
+      }
+    )
+  }
+
   // Password change
   async changePassword(currentPassword: string, newPassword: string) {
     return this.request<{ success: boolean; message: string }>('/change-password', {
