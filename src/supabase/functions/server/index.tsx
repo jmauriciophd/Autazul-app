@@ -220,11 +220,48 @@ app.get('/make-server-a07d0a8e/children', async (c) => {
       return c.json({ error: 'Unauthorized' }, 401)
     }
 
-    const childrenIds = await kv.get(`children:parent:${user.id}`) || []
+    // Get own children
+    const ownChildrenIds = await kv.get(`children:parent:${user.id}`) || []
+    
+    // Get shared children
+    const sharedChildrenIds = await kv.get(`shared_children:${user.id}`) || []
+    
+    // Get children where user is co-parent
+    const allChildren = await kv.getByPrefix('child:')
+    const coParentChildrenIds = []
+    for (const child of allChildren) {
+      const coParents = await kv.get(`coparents:child:${child.id}`) || []
+      if (coParents.includes(user.id)) {
+        coParentChildrenIds.push(child.id)
+      }
+    }
+
+    // Combine all unique IDs
+    const allChildrenIds = [...new Set([...ownChildrenIds, ...sharedChildrenIds, ...coParentChildrenIds])]
+    
     const children = []
-    for (const id of childrenIds) {
+    for (const id of allChildrenIds) {
       const child = await kv.get(`child:${id}`)
-      if (child) children.push(child)
+      if (child) {
+        // Add metadata about access type
+        const enrichedChild = { ...child }
+        
+        if (child.parentId === user.id) {
+          enrichedChild.accessType = 'owner'
+        } else if (sharedChildrenIds.includes(id)) {
+          enrichedChild.accessType = 'shared'
+          // Get who shared it
+          const sharedWith = await kv.get(`child_shared_with:${id}`) || []
+          const owner = await kv.get(`user:${child.parentId}`)
+          enrichedChild.sharedBy = owner?.name || 'Responsável'
+        } else if (coParentChildrenIds.includes(id)) {
+          enrichedChild.accessType = 'coparent'
+          const owner = await kv.get(`user:${child.parentId}`)
+          enrichedChild.primaryParent = owner?.name || 'Responsável'
+        }
+        
+        children.push(enrichedChild)
+      }
     }
 
     return c.json({ children })
@@ -233,6 +270,32 @@ app.get('/make-server-a07d0a8e/children', async (c) => {
     return c.json({ error: String(error) }, 500)
   }
 })
+
+// Helper function to check if user has access to child
+async function userHasAccessToChild(userId: string, childId: string): Promise<boolean> {
+  const child = await kv.get(`child:${childId}`)
+  if (!child) return false
+  
+  // 1. Is the primary parent?
+  if (child.parentId === userId) return true
+  
+  // 2. Is a co-parent?
+  const coParents = await kv.get(`coparents:child:${childId}`) || []
+  if (coParents.includes(userId)) return true
+  
+  // 3. Has shared access?
+  const sharedWith = await kv.get(`child_shared_with:${childId}`) || []
+  if (sharedWith.includes(userId)) return true
+  
+  // 4. Is a linked professional?
+  const userData = await kv.get(`user:${userId}`)
+  if (userData?.role === 'professional') {
+    const professionalIds = await kv.get(`professionals:child:${childId}`) || []
+    if (professionalIds.includes(userId)) return true
+  }
+  
+  return false
+}
 
 // Get specific child
 app.get('/make-server-a07d0a8e/children/:childId', async (c) => {
@@ -250,17 +313,9 @@ app.get('/make-server-a07d0a8e/children/:childId', async (c) => {
       return c.json({ error: 'Child not found' }, 404)
     }
 
-    // Check if user is parent or linked professional
-    const userData = await kv.get(`user:${user.id}`)
-    if (userData?.role === 'parent' && child.parentId !== user.id) {
-      return c.json({ error: 'Unauthorized' }, 403)
-    }
-
-    if (userData?.role === 'professional') {
-      const professionalIds = await kv.get(`professionals:child:${childId}`) || []
-      if (!professionalIds.includes(user.id)) {
-        return c.json({ error: 'Unauthorized' }, 403)
-      }
+    // Check if user has access
+    if (!await userHasAccessToChild(user.id, childId)) {
+      return c.json({ error: 'Unauthorized - No access to this child' }, 403)
     }
 
     return c.json({ child })
@@ -836,16 +891,9 @@ app.get('/make-server-a07d0a8e/events/:childId/:yearMonth', async (c) => {
       return c.json({ error: 'Child not found' }, 404)
     }
 
-    const userData = await kv.get(`user:${user.id}`)
-    if (userData?.role === 'parent' && child.parentId !== user.id) {
-      return c.json({ error: 'Unauthorized' }, 403)
-    }
-
-    if (userData?.role === 'professional') {
-      const professionalIds = await kv.get(`professionals:child:${childId}`) || []
-      if (!professionalIds.includes(user.id)) {
-        return c.json({ error: 'Unauthorized' }, 403)
-      }
+    // Use helper function to check access
+    if (!await userHasAccessToChild(user.id, childId)) {
+      return c.json({ error: 'Unauthorized - No access to this child' }, 403)
     }
 
     const eventIds = await kv.get(`events:child:${childId}:${yearMonth}`) || []
@@ -893,17 +941,9 @@ app.get('/make-server-a07d0a8e/events/:eventId', async (c) => {
 
     // Verify user has access
     const child = await kv.get(`child:${event.childId}`)
-    const userData = await kv.get(`user:${user.id}`)
     
-    if (userData?.role === 'parent' && child.parentId !== user.id) {
-      return c.json({ error: 'Unauthorized' }, 403)
-    }
-
-    if (userData?.role === 'professional') {
-      const professionalIds = await kv.get(`professionals:child:${event.childId}`) || []
-      if (!professionalIds.includes(user.id)) {
-        return c.json({ error: 'Unauthorized' }, 403)
-      }
+    if (!await userHasAccessToChild(user.id, event.childId)) {
+      return c.json({ error: 'Unauthorized - No access to this child' }, 403)
     }
 
     const creator = await kv.get(`user:${event.creatorId || event.professionalId}`)
@@ -942,12 +982,12 @@ app.put('/make-server-a07d0a8e/children/:childId', async (c) => {
       return c.json({ error: 'Child not found' }, 404)
     }
 
-    // Check if user is parent or co-parent
+    // Check if user is parent or co-parent (shared access cannot edit)
     const userData = await kv.get(`user:${user.id}`)
     const coParents = await kv.get(`coparents:child:${childId}`) || []
     
     if (child.parentId !== user.id && !coParents.includes(user.id)) {
-      return c.json({ error: 'Unauthorized - Not a parent or co-parent of this child' }, 403)
+      return c.json({ error: 'Unauthorized - Only parent or co-parent can edit child data' }, 403)
     }
 
     const updatedChild = {
@@ -1177,6 +1217,230 @@ app.post('/make-server-a07d0a8e/coparents/accept/:token', async (c) => {
     return c.json({ success: true, coParentId })
   } catch (error) {
     console.log('Error accepting co-parent invite:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// ===== CHILD SHARING ROUTES =====
+
+// Share child with another parent
+app.post('/make-server-a07d0a8e/children/:childId/share', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const childId = c.req.param('childId')
+    const { parentEmail } = await c.req.json()
+    
+    // Verify user is the parent (owner) of this child
+    const child = await kv.get(`child:${childId}`)
+    if (!child || child.parentId !== user.id) {
+      return c.json({ error: 'Unauthorized - Not the parent of this child' }, 403)
+    }
+
+    // Find the parent by email
+    const allUsers = await kv.getByPrefix('user:')
+    const targetParent = allUsers.find((u: any) => 
+      u.email === parentEmail && u.role === 'parent'
+    )
+
+    if (!targetParent) {
+      return c.json({ error: 'Responsável não encontrado no sistema' }, 404)
+    }
+
+    // Cannot share with self
+    if (targetParent.id === user.id) {
+      return c.json({ error: 'Você não pode compartilhar com você mesmo' }, 400)
+    }
+
+    // Check if already shared
+    const sharedWith = await kv.get(`child_shared_with:${childId}`) || []
+    if (sharedWith.includes(targetParent.id)) {
+      return c.json({ error: 'Filho já está compartilhado com este responsável' }, 400)
+    }
+
+    // Check if target is already a co-parent
+    const coParents = await kv.get(`coparents:child:${childId}`) || []
+    if (coParents.includes(targetParent.id)) {
+      return c.json({ error: 'Este responsável já é co-responsável desta criança' }, 400)
+    }
+
+    // Create invitation
+    const inviteId = generateId()
+    const invitation = {
+      id: inviteId,
+      type: 'child_share_invite',
+      fromUserId: user.id,
+      fromUserName: (await kv.get(`user:${user.id}`))?.name || 'Responsável',
+      toUserId: targetParent.id,
+      childId,
+      childName: child.name,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    }
+
+    await kv.set(`invitation:${inviteId}`, invitation)
+    
+    // Add to target parent's notifications
+    const notifKey = `notifications:${targetParent.id}`
+    const existingNotifs = await kv.get(notifKey) || []
+    await kv.set(notifKey, [inviteId, ...existingNotifs])
+
+    // Send email notification
+    const parent = await kv.get(`user:${user.id}`)
+    const emailHtml = generateChildShareEmailTemplate(
+      targetParent.name || targetParent.email,
+      parent?.name || user.email,
+      child.name
+    )
+    
+    try {
+      await sendEmail(
+        parentEmail,
+        '👶 Filho Compartilhado - Autazul',
+        emailHtml
+      )
+      console.log('✅ Email de compartilhamento de filho enviado com sucesso')
+    } catch (emailError) {
+      console.error('❌ Erro ao enviar email:', emailError)
+    }
+
+    return c.json({ 
+      success: true, 
+      message: 'Filho compartilhado com sucesso',
+      parentName: targetParent.name 
+    })
+  } catch (error) {
+    console.log('Error sharing child:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// Accept child share invitation
+app.post('/make-server-a07d0a8e/children/shared/:invitationId/accept', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const invitationId = c.req.param('invitationId')
+    const invitation = await kv.get(`invitation:${invitationId}`)
+    
+    if (!invitation) {
+      return c.json({ error: 'Convite não encontrado' }, 404)
+    }
+
+    if (invitation.toUserId !== user.id) {
+      return c.json({ error: 'Unauthorized' }, 403)
+    }
+
+    if (invitation.status !== 'pending') {
+      return c.json({ error: 'Convite já foi processado' }, 400)
+    }
+
+    // Add child to user's shared children
+    const sharedChildrenKey = `shared_children:${user.id}`
+    const existingShared = await kv.get(sharedChildrenKey) || []
+    await kv.set(sharedChildrenKey, [...existingShared, invitation.childId])
+
+    // Add user to child's shared with list
+    const sharedWithKey = `child_shared_with:${invitation.childId}`
+    const existingSharedWith = await kv.get(sharedWithKey) || []
+    await kv.set(sharedWithKey, [...existingSharedWith, user.id])
+
+    // Update invitation status
+    await kv.set(`invitation:${invitationId}`, {
+      ...invitation,
+      status: 'accepted',
+      acceptedAt: new Date().toISOString()
+    })
+
+    // Create notification for the parent who shared
+    await createNotification(
+      invitation.fromUserId,
+      'child_shared_accepted',
+      'Filho compartilhado aceito',
+      `${(await kv.get(`user:${user.id}`))?.name || 'Responsável'} aceitou visualizar ${invitation.childName}`,
+      invitation.childId
+    )
+
+    return c.json({ success: true, message: 'Convite aceito com sucesso' })
+  } catch (error) {
+    console.log('Error accepting child share:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// Reject child share invitation
+app.post('/make-server-a07d0a8e/children/shared/:invitationId/reject', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const invitationId = c.req.param('invitationId')
+    const invitation = await kv.get(`invitation:${invitationId}`)
+    
+    if (!invitation) {
+      return c.json({ error: 'Convite não encontrado' }, 404)
+    }
+
+    if (invitation.toUserId !== user.id) {
+      return c.json({ error: 'Unauthorized' }, 403)
+    }
+
+    // Update invitation status
+    await kv.set(`invitation:${invitationId}`, {
+      ...invitation,
+      status: 'rejected',
+      rejectedAt: new Date().toISOString()
+    })
+
+    return c.json({ success: true, message: 'Convite recusado' })
+  } catch (error) {
+    console.log('Error rejecting child share:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// Remove shared access
+app.delete('/make-server-a07d0a8e/children/:childId/shared/:userId', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const childId = c.req.param('childId')
+    const sharedUserId = c.req.param('userId')
+    
+    // Verify user is the parent (owner) of this child
+    const child = await kv.get(`child:${childId}`)
+    if (!child || child.parentId !== user.id) {
+      return c.json({ error: 'Unauthorized - Not the parent of this child' }, 403)
+    }
+
+    // Remove from child's shared with list
+    const sharedWithKey = `child_shared_with:${childId}`
+    const sharedWith = await kv.get(sharedWithKey) || []
+    await kv.set(sharedWithKey, sharedWith.filter((id: string) => id !== sharedUserId))
+
+    // Remove from user's shared children list
+    const sharedChildrenKey = `shared_children:${sharedUserId}`
+    const sharedChildren = await kv.get(sharedChildrenKey) || []
+    await kv.set(sharedChildrenKey, sharedChildren.filter((id: string) => id !== childId))
+
+    return c.json({ success: true })
+  } catch (error) {
+    console.log('Error removing shared access:', error)
     return c.json({ error: String(error) }, 500)
   }
 })
@@ -1776,6 +2040,202 @@ app.get('/make-server-a07d0a8e/check-2fa-required', async (c) => {
 })
 
 // ===== EMAIL HELPER FUNCTIONS =====
+
+function generateChildShareEmailTemplate(parentName: string, fromParentName: string, childName: string): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: 'Nunito', Arial, sans-serif;
+      background-color: #f5f5f5;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 40px auto;
+      background-color: #ffffff;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .header {
+      background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+      padding: 40px 20px;
+      text-align: center;
+    }
+    .header h1 {
+      color: #ffffff;
+      margin: 0;
+      font-family: 'Roboto Condensed', sans-serif;
+      font-size: 36px;
+    }
+    .header .icon {
+      font-size: 64px;
+      margin-bottom: 10px;
+    }
+    .content {
+      padding: 40px 30px;
+    }
+    .greeting {
+      color: #5C8599;
+      font-size: 22px;
+      margin-bottom: 20px;
+    }
+    .message {
+      color: #373737;
+      font-size: 16px;
+      line-height: 1.8;
+      margin-bottom: 25px;
+    }
+    .info-box {
+      background-color: #eff6ff;
+      border-left: 4px solid #3b82f6;
+      padding: 20px;
+      margin: 25px 0;
+      border-radius: 8px;
+    }
+    .info-box p {
+      margin: 8px 0;
+      color: #373737;
+      font-size: 15px;
+    }
+    .info-box strong {
+      color: #3b82f6;
+    }
+    .cta-button {
+      display: inline-block;
+      background-color: #3b82f6;
+      color: #ffffff !important;
+      text-decoration: none;
+      padding: 16px 40px;
+      border-radius: 8px;
+      font-size: 18px;
+      font-weight: bold;
+      margin: 25px 0;
+      text-align: center;
+    }
+    .permissions-box {
+      background-color: #f0fdf4;
+      border: 1px solid #86efac;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 20px 0;
+    }
+    .permissions-box ul {
+      margin: 10px 0;
+      padding-left: 20px;
+    }
+    .permissions-box li {
+      color: #166534;
+      margin: 8px 0;
+    }
+    .restrictions-box {
+      background-color: #fef2f2;
+      border: 1px solid #fca5a5;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 20px 0;
+    }
+    .restrictions-box ul {
+      margin: 10px 0;
+      padding-left: 20px;
+    }
+    .restrictions-box li {
+      color: #991b1b;
+      margin: 8px 0;
+    }
+    .footer {
+      background-color: #f5f5f5;
+      padding: 30px;
+      text-align: center;
+      border-top: 1px solid #e0e0e0;
+    }
+    .footer p {
+      color: #9ca3af;
+      font-size: 12px;
+      margin: 5px 0;
+    }
+    .footer a {
+      color: #3b82f6;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="icon">👶</div>
+      <h1>Autazul</h1>
+    </div>
+    <div class="content">
+      <p class="greeting">
+        👋 Olá, ${parentName}!
+      </p>
+      <p class="message">
+        Você recebeu acesso para visualizar informações de uma criança no <strong>Autazul</strong>!
+      </p>
+      
+      <div class="info-box">
+        <p><strong>👤 Compartilhado por:</strong> ${fromParentName}</p>
+        <p><strong>👶 Criança:</strong> ${childName}</p>
+        <p><strong>🔍 Tipo de Acesso:</strong> Visualização</p>
+      </div>
+      
+      <p class="message">
+        ${fromParentName} compartilhou ${childName} com você na plataforma Autazul. 
+        Você poderá visualizar eventos e profissionais vinculados.
+      </p>
+      
+      <div class="permissions-box">
+        <p style="color: #166534; margin: 0 0 10px 0;"><strong>✅ Você PODE:</strong></p>
+        <ul>
+          <li>Visualizar eventos registrados</li>
+          <li>Ver profissionais vinculados</li>
+          <li>Acompanhar o desenvolvimento</li>
+          <li>Ver dados básicos da criança</li>
+        </ul>
+      </div>
+
+      <div class="restrictions-box">
+        <p style="color: #991b1b; margin: 0 0 10px 0;"><strong>❌ Você NÃO PODE:</strong></p>
+        <ul>
+          <li>Editar dados da criança</li>
+          <li>Adicionar ou remover profissionais</li>
+          <li>Compartilhar com outras pessoas</li>
+          <li>Alterar configurações</li>
+        </ul>
+      </div>
+      
+      <center>
+        <a href="${Deno.env.get('SUPABASE_URL') || 'http://localhost:3000'}" class="cta-button">
+          ✅ Acessar Autazul
+        </a>
+      </center>
+      
+      <p class="message" style="font-size: 14px; color: #9ca3af; margin-top: 30px;">
+        Este é um acesso de visualização. Se você precisar de mais permissões, 
+        entre em contato com ${fromParentName}.
+      </p>
+    </div>
+    <div class="footer">
+      <p><strong>Autazul - Acompanhamento e Cuidado</strong></p>
+      <p>
+        <a href="mailto:suporte@autazul.com">Suporte</a> | 
+        <a href="#">Política de Privacidade</a> | 
+        <a href="#">Termos de Uso</a>
+      </p>
+      <p>© 2025 Autazul. Todos os direitos reservados.</p>
+    </div>
+  </div>
+</body>
+</html>
+  `
+}
 
 function generateCoParentInviteEmailTemplate(coParentName: string, parentName: string, childName: string): string {
   return `

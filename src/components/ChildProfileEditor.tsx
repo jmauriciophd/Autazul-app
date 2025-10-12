@@ -47,6 +47,16 @@ export function ChildProfileEditor({ child, open, onOpenChange, onUpdate }: Chil
   const [inviteUrl, setInviteUrl] = useState('')
   const [showInviteDialog, setShowInviteDialog] = useState(false)
   const [copied, setCopied] = useState(false)
+  
+  // Child sharing states
+  const [shareEmail, setShareEmail] = useState('')
+  const [sharedWithUsers, setSharedWithUsers] = useState<Array<{ id: string; name: string; email: string }>>([])
+
+  useEffect(() => {
+    if (open) {
+      loadSharedWith()
+    }
+  }, [open])
 
   useEffect(() => {
     if (open) {
@@ -145,6 +155,43 @@ export function ChildProfileEditor({ child, open, onOpenChange, onUpdate }: Chil
     notify.success('Link copiado!')
   }
 
+  async function loadSharedWith() {
+    // Esta função seria implementada no servidor para listar com quem o filho está compartilhado
+    // Por enquanto vamos deixar vazio, pode ser implementado depois se necessário
+    setSharedWithUsers([])
+  }
+
+  async function handleShareChild(e: React.FormEvent) {
+    e.preventDefault()
+    setLoading(true)
+
+    try {
+      const { parentName } = await api.shareChild(child.id, shareEmail)
+      setShareEmail('')
+      await loadSharedWith()
+      notify.success(
+        'Filho compartilhado!', 
+        `${parentName} receberá uma notificação e poderá visualizar as informações`
+      )
+    } catch (error: any) {
+      console.error('Error sharing child:', error)
+      const errorMessage = error?.error || 'Tente novamente'
+      if (errorMessage.includes('não encontrado')) {
+        notify.error('Responsável não encontrado', 'Verifique se o email está correto e se a pessoa já possui cadastro no sistema')
+      } else if (errorMessage.includes('já está compartilhado')) {
+        notify.error('Já compartilhado', 'Este filho já está compartilhado com este responsável')
+      } else if (errorMessage.includes('não pode compartilhar com você mesmo')) {
+        notify.error('Erro', 'Você não pode compartilhar com você mesmo')
+      } else if (errorMessage.includes('já é co-responsável')) {
+        notify.error('Já vinculado', 'Esta pessoa já é co-responsável desta criança')
+      } else {
+        notify.error('Erro ao compartilhar', errorMessage)
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -157,9 +204,10 @@ export function ChildProfileEditor({ child, open, onOpenChange, onUpdate }: Chil
           </DialogHeader>
 
           <Tabs defaultValue="info" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="info">Informações</TabsTrigger>
               <TabsTrigger value="coparents">Co-Responsáveis</TabsTrigger>
+              <TabsTrigger value="share">Compartilhar</TabsTrigger>
             </TabsList>
 
             <TabsContent value="info" className="space-y-4">
@@ -348,6 +396,108 @@ export function ChildProfileEditor({ child, open, onOpenChange, onUpdate }: Chil
                             <p className="text-sm text-muted-foreground">{cp.email}</p>
                           </div>
                           <Badge variant="secondary">Co-Responsável</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="share" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <UserPlus className="w-5 h-5" />
+                    Compartilhar Filho
+                  </CardTitle>
+                  <CardDescription>
+                    Compartilhe {child.name} com outro responsável para que ele possa visualizar eventos e profissionais
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                    <p className="text-sm text-blue-900">
+                      <strong>ℹ️ Sobre o compartilhamento:</strong>
+                      <br />
+                      • O responsável poderá <strong>visualizar</strong> eventos e profissionais
+                      <br />
+                      • O responsável <strong>NÃO poderá editar</strong> dados da criança
+                      <br />
+                      • O responsável <strong>NÃO poderá adicionar/remover</strong> profissionais
+                      <br />
+                      • Você pode remover o acesso a qualquer momento
+                    </p>
+                  </div>
+                  
+                  <form onSubmit={handleShareChild} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="shareEmail">Email do Responsável *</Label>
+                      <Input
+                        id="shareEmail"
+                        type="email"
+                        value={shareEmail}
+                        onChange={(e) => setShareEmail(e.target.value)}
+                        placeholder="email@exemplo.com"
+                        required
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Digite o email de um responsável já cadastrado no sistema
+                      </p>
+                    </div>
+                    <Button type="submit" className="w-full" disabled={loading}>
+                      {loading ? 'Compartilhando...' : '📤 Compartilhar Filho'}
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Users className="w-5 h-5" />
+                    Compartilhado Com
+                  </CardTitle>
+                  <CardDescription>
+                    Responsáveis que têm acesso de visualização
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {sharedWithUsers.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-4">
+                      Nenhum compartilhamento ativo
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {sharedWithUsers.map((user) => (
+                        <div
+                          key={user.id}
+                          className="flex items-center justify-between p-3 rounded-lg bg-muted"
+                        >
+                          <div>
+                            <p>{user.name}</p>
+                            <p className="text-sm text-muted-foreground">{user.email}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="secondary">👁️ Visualização</Badge>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={async () => {
+                                if (confirm('Remover acesso deste responsável?')) {
+                                  try {
+                                    await api.removeSharedAccess(child.id, user.id)
+                                    await loadSharedWith()
+                                    notify.success('Acesso removido')
+                                  } catch (error) {
+                                    notify.error('Erro ao remover acesso')
+                                  }
+                                }
+                              }}
+                            >
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </Button>
+                          </div>
                         </div>
                       ))}
                     </div>

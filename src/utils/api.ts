@@ -257,6 +257,44 @@ export class ApiClient {
     return this.request<{ coParents: any[] }>(`/children/${childId}/coparents`)
   }
 
+  // Child sharing
+  async shareChild(childId: string, parentEmail: string) {
+    return this.request<{ success: boolean; message: string; parentName: string }>(
+      `/children/${childId}/share`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ parentEmail }),
+      }
+    )
+  }
+
+  async acceptChildShare(invitationId: string) {
+    return this.request<{ success: boolean; message: string }>(
+      `/children/shared/${invitationId}/accept`,
+      {
+        method: 'POST',
+      }
+    )
+  }
+
+  async rejectChildShare(invitationId: string) {
+    return this.request<{ success: boolean; message: string }>(
+      `/children/shared/${invitationId}/reject`,
+      {
+        method: 'POST',
+      }
+    )
+  }
+
+  async removeSharedAccess(childId: string, userId: string) {
+    return this.request<{ success: boolean }>(
+      `/children/${childId}/shared/${userId}`,
+      {
+        method: 'DELETE',
+      }
+    )
+  }
+
   // Appointments
   async createAppointment(appointmentData: {
     childId: string

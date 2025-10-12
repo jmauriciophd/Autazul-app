@@ -23,7 +23,7 @@ interface Notification {
 
 interface Invitation {
   id: string
-  type: 'professional_invite' | 'coparent_invite'
+  type: 'professional_invite' | 'coparent_invite' | 'child_share_invite'
   fromUserId: string
   fromUserName: string
   toUserId: string
@@ -75,10 +75,14 @@ export function NotificationsPopover() {
     }
   }
 
-  async function handleAcceptInvitation(invitationId: string) {
+  async function handleAcceptInvitation(invitationId: string, invitationType: string) {
     setProcessingInvite(invitationId)
     try {
-      await api.acceptInvitation(invitationId)
+      if (invitationType === 'child_share_invite') {
+        await api.acceptChildShare(invitationId)
+      } else {
+        await api.acceptInvitation(invitationId)
+      }
       notify.success('Convite aceito!', 'Você agora tem acesso às informações')
       await loadInvitations()
       // Reload page to show new child
@@ -91,10 +95,14 @@ export function NotificationsPopover() {
     }
   }
 
-  async function handleRejectInvitation(invitationId: string) {
+  async function handleRejectInvitation(invitationId: string, invitationType: string) {
     setProcessingInvite(invitationId)
     try {
-      await api.rejectInvitation(invitationId)
+      if (invitationType === 'child_share_invite') {
+        await api.rejectChildShare(invitationId)
+      } else {
+        await api.rejectInvitation(invitationId)
+      }
       notify.success('Convite recusado')
       await loadInvitations()
     } catch (error: any) {
@@ -206,17 +214,29 @@ export function NotificationsPopover() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <p className="font-semibold text-sm" style={{ color: '#5C8599' }}>
-                          {invitation.type === 'professional_invite' ? '💼 Novo Convite Profissional' : '👨‍👩‍👧 Convite de Co-Responsável'}
+                          {invitation.type === 'professional_invite' 
+                            ? '💼 Novo Convite Profissional' 
+                            : invitation.type === 'coparent_invite'
+                            ? '👨‍👩‍👧 Convite de Co-Responsável'
+                            : '👶 Filho Compartilhado'}
                         </p>
                       </div>
                       <p className="text-sm text-muted-foreground mb-2">
-                        <strong>{invitation.fromUserName}</strong> convidou você para acompanhar{' '}
+                        <strong>{invitation.fromUserName}</strong> 
+                        {invitation.type === 'child_share_invite'
+                          ? ` compartilhou `
+                          : ` convidou você para acompanhar `}
                         <strong>{invitation.childName}</strong>
+                        {invitation.type === 'child_share_invite' && (
+                          <span className="block text-xs mt-1 text-muted-foreground">
+                            (Acesso de visualização apenas)
+                          </span>
+                        )}
                       </p>
                       <div className="flex gap-2 mt-3">
                         <Button
                           size="sm"
-                          onClick={() => handleAcceptInvitation(invitation.id)}
+                          onClick={() => handleAcceptInvitation(invitation.id, invitation.type)}
                           disabled={processingInvite === invitation.id}
                           className="flex-1"
                         >
@@ -226,7 +246,7 @@ export function NotificationsPopover() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => handleRejectInvitation(invitation.id)}
+                          onClick={() => handleRejectInvitation(invitation.id, invitation.type)}
                           disabled={processingInvite === invitation.id}
                         >
                           <X className="w-3 h-3 mr-1" />

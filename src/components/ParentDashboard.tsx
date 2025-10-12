@@ -409,23 +409,47 @@ export function ParentDashboard() {
                       <SelectValue placeholder="Selecione um filho" />
                     </SelectTrigger>
                     <SelectContent>
-                      {children.map((child) => (
+                      {children.map((child: any) => (
                         <SelectItem key={child.id} value={child.id}>
-                          {child.name}
+                          <div className="flex items-center gap-2">
+                            {child.name}
+                            {child.accessType === 'shared' && (
+                              <Badge variant="secondary" className="text-xs">👁️</Badge>
+                            )}
+                            {child.accessType === 'coparent' && (
+                              <Badge variant="outline" className="text-xs">🤝</Badge>
+                            )}
+                          </div>
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 )}
                 {selectedChild && (
-                  <Button 
-                    className="w-full" 
-                    variant="secondary"
-                    onClick={() => setEditChildDialogOpen(true)}
-                  >
-                    <Edit className="w-4 h-4 mr-2" />
-                    Editar Perfil
-                  </Button>
+                  <>
+                    {(selectedChild as any).accessType === 'shared' && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-900">
+                        <p className="font-semibold">👁️ Acesso de Visualização</p>
+                        <p className="text-xs mt-1">Compartilhado por: {(selectedChild as any).sharedBy}</p>
+                      </div>
+                    )}
+                    {(selectedChild as any).accessType === 'coparent' && (
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-900">
+                        <p className="font-semibold">🤝 Co-Responsável</p>
+                        <p className="text-xs mt-1">Responsável principal: {(selectedChild as any).primaryParent}</p>
+                      </div>
+                    )}
+                    {((selectedChild as any).accessType === 'owner' || (selectedChild as any).accessType === 'coparent') && (
+                      <Button 
+                        className="w-full" 
+                        variant="secondary"
+                        onClick={() => setEditChildDialogOpen(true)}
+                      >
+                        <Edit className="w-4 h-4 mr-2" />
+                        Editar Perfil
+                      </Button>
+                    )}
+                  </>
                 )}
                 <Dialog open={addChildDialogOpen} onOpenChange={setAddChildDialogOpen}>
                   <DialogTrigger asChild>
