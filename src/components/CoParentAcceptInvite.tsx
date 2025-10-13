@@ -5,8 +5,9 @@ import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
-import { Heart, UserCheck, Loader2, Users } from 'lucide-react'
+import { Heart, UserCheck, Loader2, Users, LogIn, UserPlus } from 'lucide-react'
 import { Alert, AlertDescription } from './ui/alert'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
 
 interface CoParentAcceptInviteProps {
   token: string
@@ -20,9 +21,16 @@ export function CoParentAcceptInvite({ token }: CoParentAcceptInviteProps) {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
 
+  // For creating new account
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
+  
+  // For existing account login
+  const [loginEmail, setLoginEmail] = useState('')
+  const [loginPassword, setLoginPassword] = useState('')
+  
+  const [activeTab, setActiveTab] = useState('login')
 
   useEffect(() => {
     loadInvite()
@@ -45,20 +53,62 @@ export function CoParentAcceptInvite({ token }: CoParentAcceptInviteProps) {
     }
   }
 
-  async function handleAccept(e: React.FormEvent) {
+  async function handleAcceptWithNewAccount(e: React.FormEvent) {
     e.preventDefault()
     setError('')
     setSubmitting(true)
 
     try {
+      console.log('🆕 Criando nova conta e aceitando convite...')
       await api.acceptCoParentInvite(token, email, password, name)
       
       // Sign in after accepting
+      console.log('🔐 Fazendo login com nova conta...')
       await signIn(email, password)
       
       setSuccess(true)
     } catch (err: any) {
-      setError(err.message || 'Erro ao aceitar convite. Tente novamente.')
+      console.error('❌ Erro ao criar conta:', err)
+      const errorMessage = err.message || err.error || 'Erro ao aceitar convite'
+      
+      // Tratar erro de email já existente
+      if (errorMessage.includes('já existe') || errorMessage.includes('already registered')) {
+        setError('Este email já possui uma conta. Use a aba "Já tenho conta" para fazer login.')
+        setActiveTab('login')
+        setLoginEmail(email)
+      } else {
+        setError(errorMessage)
+      }
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  async function handleAcceptWithExistingAccount(e: React.FormEvent) {
+    e.preventDefault()
+    setError('')
+    setSubmitting(true)
+
+    try {
+      console.log('🔐 Fazendo login com conta existente...')
+      // First, sign in to get the token
+      await signIn(loginEmail, loginPassword)
+      
+      console.log('✅ Login realizado, aceitando convite...')
+      // Now accept the invitation with the logged-in user
+      await api.acceptCoParentInviteByEmail(token)
+      
+      setSuccess(true)
+    } catch (err: any) {
+      console.error('❌ Erro ao fazer login ou aceitar:', err)
+      const errorMessage = err.message || err.error || 'Erro ao aceitar convite'
+      
+      if (errorMessage.includes('Invalid login credentials') || 
+          errorMessage.includes('Email ou senha incorretos')) {
+        setError('Email ou senha incorretos. Verifique suas credenciais.')
+      } else {
+        setError(errorMessage)
+      }
     } finally {
       setSubmitting(false)
     }
@@ -160,53 +210,134 @@ export function CoParentAcceptInvite({ token }: CoParentAcceptInviteProps) {
             </div>
           </div>
 
-          <form onSubmit={handleAccept} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Nome Completo</Label>
-              <Input
-                id="name"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                placeholder="Seu nome completo"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                placeholder="seu@email.com"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                placeholder="Crie uma senha (mínimo 6 caracteres)"
-                minLength={6}
-              />
-              <p className="text-xs text-muted-foreground">
-                Crie uma senha segura para acessar o sistema
-              </p>
-            </div>
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            <Button type="submit" className="w-full" disabled={submitting}>
-              {submitting ? 'Processando...' : 'Aceitar Convite e Criar Conta'}
-            </Button>
-          </form>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="login" className="gap-2">
+                <LogIn className="w-4 h-4" />
+                Já tenho conta
+              </TabsTrigger>
+              <TabsTrigger value="signup" className="gap-2">
+                <UserPlus className="w-4 h-4" />
+                Criar conta
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="login" className="space-y-4 mt-6">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                <p className="text-sm text-blue-900">
+                  ℹ️ Se você já possui uma conta no Autazul, faça login para aceitar o convite.
+                </p>
+              </div>
+              
+              <form onSubmit={handleAcceptWithExistingAccount} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="loginEmail">Email</Label>
+                  <Input
+                    id="loginEmail"
+                    type="email"
+                    value={loginEmail}
+                    onChange={(e) => setLoginEmail(e.target.value)}
+                    required
+                    placeholder="seu@email.com"
+                    autoComplete="email"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="loginPassword">Senha</Label>
+                  <Input
+                    id="loginPassword"
+                    type="password"
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    required
+                    placeholder="Sua senha"
+                    autoComplete="current-password"
+                  />
+                </div>
+                {error && (
+                  <Alert variant="destructive">
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+                <Button type="submit" className="w-full" disabled={submitting}>
+                  {submitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Processando...
+                    </>
+                  ) : (
+                    'Fazer Login e Aceitar Convite'
+                  )}
+                </Button>
+              </form>
+            </TabsContent>
+
+            <TabsContent value="signup" className="space-y-4 mt-6">
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 mb-4">
+                <p className="text-sm text-purple-900">
+                  ℹ️ Crie uma nova conta para aceitar o convite e acessar o sistema.
+                </p>
+              </div>
+
+              <form onSubmit={handleAcceptWithNewAccount} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Nome Completo</Label>
+                  <Input
+                    id="name"
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                    placeholder="Seu nome completo"
+                    autoComplete="name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    placeholder="seu@email.com"
+                    autoComplete="email"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password">Senha</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    placeholder="Crie uma senha (mínimo 6 caracteres)"
+                    minLength={6}
+                    autoComplete="new-password"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Crie uma senha segura para acessar o sistema
+                  </p>
+                </div>
+                {error && (
+                  <Alert variant="destructive">
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+                <Button type="submit" className="w-full" disabled={submitting}>
+                  {submitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Processando...
+                    </>
+                  ) : (
+                    'Criar Conta e Aceitar Convite'
+                  )}
+                </Button>
+              </form>
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
     </div>

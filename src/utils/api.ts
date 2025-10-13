@@ -253,6 +253,15 @@ export class ApiClient {
     )
   }
 
+  async acceptCoParentInviteByEmail(token: string) {
+    return this.request<{ success: boolean; message: string }>(
+      `/coparents/accept-by-email/${token}`,
+      {
+        method: 'POST',
+      }
+    )
+  }
+
   async getCoParentsForChild(childId: string) {
     return this.request<{ coParents: any[] }>(`/children/${childId}/coparents`)
   }

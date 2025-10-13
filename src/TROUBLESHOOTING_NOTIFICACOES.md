@@ -172,7 +172,7 @@ await kv.set('invitation:test123', {
    ```typescript
    const SMTP_CONFIG = {
      user: 'webservicesbsb@gmail.com',
-     pass: 'SENHA-APP-AQUI', // Substituir ssdsd
+     pass: 'SENHA-APP-AQUI', // Substituir Akmcbhtj1
      host: 'smtp.gmail.com',
      port: 587,
      secure: false,

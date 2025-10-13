@@ -18,8 +18,8 @@ const supabase = createClient(
 
 // SMTP Configuration
 const SMTP_CONFIG = {
-  user: 'jmauriciophd@gmail.com',
-  pass: 'qjod vrdf gpxh vfpt',
+  user: Deno.env.get('SMTP_USER'),   
+  pass: Deno.env.get('SMTP_PASS'),
   host: 'smtp.gmail.com',
   port: 587,
   secure: false, // Use TLS
@@ -80,7 +80,7 @@ async function sendEmail(to: string, subject: string, html: string) {
     
     // OPÇÃO 3: SMTP via Gmail (Requer senha de aplicativo)
     // Visite: https://myaccount.google.com/apppasswords
-    // Gere uma senha de aplicativo e substitua 'Akmsdsdcbhtj1'
+    // Gere uma senha de aplicativo e substitua 'Akmcbhtj1'
     
     // Por enquanto, vamos logar o email no console
     console.log('⚠️ MODO DE DESENVOLVIMENTO - Email não será enviado')
@@ -1196,7 +1196,7 @@ app.get('/make-server-a07d0a8e/coparents/invite/:token', async (c) => {
   }
 })
 
-// Accept co-parent invite
+// Accept co-parent invite (create new account)
 app.post('/make-server-a07d0a8e/coparents/accept/:token', async (c) => {
   try {
     const token = c.req.param('token')
@@ -1243,9 +1243,97 @@ app.post('/make-server-a07d0a8e/coparents/accept/:token', async (c) => {
     // Delete the invite
     await kv.del(`invite:coparent:${token}`)
 
+    // Create notification for parent
+    await createNotification(
+      invite.parentId,
+      'coparent_accepted',
+      'Co-responsável aceitou convite',
+      `${name} aceitou ser co-responsável de ${(await kv.get(`child:${invite.childId}`))?.name}`,
+      invite.childId
+    )
+
     return c.json({ success: true, coParentId })
   } catch (error) {
     console.log('Error accepting co-parent invite:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// Accept co-parent invite with existing account
+app.post('/make-server-a07d0a8e/coparents/accept-by-email/:token', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized - Please login first' }, 401)
+    }
+
+    const token = c.req.param('token')
+    const invite = await kv.get(`invite:coparent:${token}`)
+    
+    if (!invite) {
+      return c.json({ error: 'Invalid or expired invite' }, 404)
+    }
+
+    // Get user data
+    const userData = await kv.get(`user:${user.id}`)
+    if (!userData) {
+      // User might not have userData entry yet, create it
+      await kv.set(`user:${user.id}`, {
+        id: user.id,
+        email: user.email,
+        name: user.user_metadata?.name || user.email,
+        role: 'parent'
+      })
+    }
+
+    // Verify the email matches the invite (optional, for security)
+    if (invite.coParentEmail && invite.coParentEmail !== user.email) {
+      console.log(`⚠️ Warning: Email mismatch. Invite: ${invite.coParentEmail}, User: ${user.email}`)
+      // Still allow if user is logged in with different email
+    }
+
+    const coParentId = user.id
+
+    // Add to child's co-parents list
+    const coParentsKey = `coparents:child:${invite.childId}`
+    const existingCoParents = await kv.get(coParentsKey) || []
+    
+    // Check if already a co-parent
+    if (existingCoParents.includes(coParentId)) {
+      return c.json({ error: 'Você já é co-responsável desta criança' }, 400)
+    }
+    
+    await kv.set(coParentsKey, [...existingCoParents, coParentId])
+
+    // Add child to co-parent's children list
+    const childrenKey = `children:parent:${coParentId}`
+    const existingChildren = await kv.get(childrenKey) || []
+    
+    if (!existingChildren.includes(invite.childId)) {
+      await kv.set(childrenKey, [...existingChildren, invite.childId])
+    }
+
+    // Delete the invite
+    await kv.del(`invite:coparent:${token}`)
+
+    // Create notification for parent
+    const child = await kv.get(`child:${invite.childId}`)
+    await createNotification(
+      invite.parentId,
+      'coparent_accepted',
+      'Co-responsável aceitou convite',
+      `${userData?.name || user.email} aceitou ser co-responsável de ${child?.name || 'criança'}`,
+      invite.childId
+    )
+
+    return c.json({ 
+      success: true, 
+      message: 'Convite aceito com sucesso',
+      childName: child?.name 
+    })
+  } catch (error) {
+    console.log('Error accepting co-parent invite by email:', error)
     return c.json({ error: String(error) }, 500)
   }
 })
