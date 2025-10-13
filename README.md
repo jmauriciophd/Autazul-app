@@ -1,7 +1,7 @@
 
   # Sistema de Construção de Eventos
 
-  This is a code bundle for Sistema de Construção de Eventos. The original project is available at https://www.figma.com/design/Uuk23TsfCPn5qyknpClkm3/Sistema-de-Constru%C3%A7%C3%A3o-de-Eventos.
+
 
   ## Running the code
 
