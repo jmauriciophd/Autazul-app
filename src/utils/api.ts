@@ -429,6 +429,14 @@ export class ApiClient {
   async check2FARequired() {
     return this.request<{ required: boolean }>('/check-2fa-required')
   }
+
+  // Feedback
+  async submitFeedback(rating: number, feedback: string) {
+    return this.request<{ success: boolean; message: string }>('/feedback', {
+      method: 'POST',
+      body: JSON.stringify({ rating, feedback }),
+    })
+  }
 }
 
 export const api = new ApiClient()

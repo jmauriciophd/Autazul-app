@@ -1,15 +1,6 @@
-import { useState, useEffect } from 'react'
-import { api } from '../utils/api'
-import { useAuth } from '../utils/AuthContext'
-import { Button } from './ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog'
-import { Input } from './ui/input'
-import { Label } from './ui/label'
-import { Textarea } from './ui/textarea'
-import { LogOut, Plus, Calendar as CalendarIcon, Users, Baby, Shield, Crown } from 'lucide-react'
 import { autazulLogo } from '../assets/logo'
 import { NotificationsPopover } from './NotificationsPopover'
+import { FeedbackDialog } from './FeedbackDialog'
 import { SecuritySettings } from './SecuritySettings'
 import { AdminPanel } from './AdminPanel'
 import { ProfileSwitcher } from './ProfileSwitcher'
@@ -200,6 +191,7 @@ export function ProfessionalDashboard() {
           </div>
           <div className="flex items-center gap-2">
             <ProfileSwitcher />
+            <FeedbackDialog />
             <NotificationsPopover />
             <Button 
               variant="ghost" 

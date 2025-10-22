@@ -1,28 +1,7 @@
-import { useState, useEffect } from 'react'
-import { api } from '../utils/api'
-import { useAuth } from '../utils/AuthContext'
-import { notify, messages } from '../utils/notifications'
-import { Button } from './ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog'
-import { Input } from './ui/input'
-import { Label } from './ui/label'
-import { Textarea } from './ui/textarea'
-import { Calendar } from './ui/calendar'
-import { LogOut, Plus, UserPlus, Users, Trash2, Copy, Check, Calendar as CalendarIcon, Edit, Settings, Shield, Crown } from 'lucide-react'
 import { autazulLogo } from '../assets/logo'
 import { NotificationsPopover } from './NotificationsPopover'
+import { FeedbackDialog } from './FeedbackDialog'
 import { SecuritySettings } from './SecuritySettings'
-import { AdminPanel } from './AdminPanel'
-import { ProfileSwitcher } from './ProfileSwitcher'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
-import { Badge } from './ui/badge'
-import { ScrollArea } from './ui/scroll-area'
-import { Separator } from './ui/separator'
-import { EventStats } from './EventStats'
-import { EventCard } from './EventCard'
-import { ChildProfileEditor } from './ChildProfileEditor'
 
 interface Child {
   id: string
@@ -348,6 +327,7 @@ export function ParentDashboard() {
           </div>
           <div className="flex items-center gap-2">
             <ProfileSwitcher />
+            <FeedbackDialog />
             <NotificationsPopover />
             <Button 
               variant="ghost" 
