@@ -15,97 +15,49 @@ const supabase = createClient(
 )
 
 // ===== EMAIL CONFIGURATION =====
-
 // SMTP Configuration
 const SMTP_CONFIG = {
-  user: Deno.env.get('SMTP_USER'),   
-  pass: Deno.env.get('SMTP_PASS'),
+  user: Deno.env.get('SMTP_USER'),
+  pass: Deno.env.get('SMTP_PASS'),  // senha de app do Gmail
   host: 'smtp.gmail.com',
   port: 587,
-  secure: false, // Use TLS
-}
+  secure: false, // TLS
+};
+
+import { SmtpClient } from "https://deno.land/x/smtp/mod.ts";
+
+
 
 // Email sending function using SMTP
 async function sendEmail(to: string, subject: string, html: string) {
+  const client = new SmtpClient();
   try {
-    console.log('📧 Preparando envio de email...')
-    console.log('Para:', to)
-    console.log('Assunto:', subject)
-    
-    // IMPORTANTE: Para envio real de emails, você tem algumas opções:
-    
-    // OPÇÃO 1: Usar SendGrid (Recomendado para produção)
-    // const SENDGRID_API_KEY = Deno.env.get('SENDGRID_API_KEY')
-    // if (SENDGRID_API_KEY) {
-    //   const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
-    //     method: 'POST',
-    //     headers: {
-    //       'Authorization': `Bearer ${SENDGRID_API_KEY}`,
-    //       'Content-Type': 'application/json',
-    //     },
-    //     body: JSON.stringify({
-    //       personalizations: [{ to: [{ email: to }] }],
-    //       from: { email: 'noreply@autazul.com', name: 'Autazul' },
-    //       subject: subject,
-    //       content: [{ type: 'text/html', value: html }]
-    //     })
-    //   })
-    //   if (response.ok) {
-    //     console.log('✅ Email enviado via SendGrid')
-    //     return { success: true }
-    //   }
-    // }
-    
-    // OPÇÃO 2: Usar Resend (Alternativa simples)
-    // const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
-    // if (RESEND_API_KEY) {
-    //   const response = await fetch('https://api.resend.com/emails', {
-    //     method: 'POST',
-    //     headers: {
-    //       'Authorization': `Bearer ${RESEND_API_KEY}`,
-    //       'Content-Type': 'application/json',
-    //     },
-    //     body: JSON.stringify({
-    //       from: 'Autazul <noreply@autazul.com>',
-    //       to: [to],
-    //       subject: subject,
-    //       html: html
-    //     })
-    //   })
-    //   if (response.ok) {
-    //     console.log('✅ Email enviado via Resend')
-    //     return { success: true }
-    //   }
-    // }
-    
-    // OPÇÃO 3: SMTP via Gmail (Requer senha de aplicativo)
-    // Visite: https://myaccount.google.com/apppasswords
-    // Gere uma senha de aplicativo e substitua 'Akmcbhtj1'
-    
-    // Por enquanto, vamos logar o email no console
-    console.log('⚠️ MODO DE DESENVOLVIMENTO - Email não será enviado')
-    console.log('ℹ️ Para envio real, configure uma das opções acima')
-    console.log('')
-    console.log('=== PREVIEW DO EMAIL ===')
-    console.log('De: Autazul <noreply@autazul.com>')
-    console.log('Para:', to)
-    console.log('Assunto:', subject)
-    console.log('---')
-    console.log(html.substring(0, 500) + '...')
-    console.log('=======================')
-    console.log('')
-    
-    // Retornar sucesso para não bloquear o fluxo
-    // Mas o email não será enviado de verdade
-    return { success: true, message: 'Email preparado (modo dev - não enviado)' }
-    
+    console.log('📧 Conectando ao SMTP...')
+    await client.connect({
+      hostname: SMTP_CONFIG.host,
+      port: SMTP_CONFIG.port,
+      username: SMTP_CONFIG.user,
+      password: SMTP_CONFIG.pass,
+      tls: SMTP_CONFIG.secure
+    });
+
+    await client.send({
+      from: SMTP_CONFIG.user,
+      to,
+      subject,
+      content: html,
+    });
+
+    console.log('✅ Email enviado com sucesso!')
+    return { success: true };
   } catch (error) {
-    console.error('❌ Erro ao preparar email:', error)
-    // Não falhar - apenas logar erro
-    console.log('⚠️ Continuando sem envio de email')
-    return { success: false, message: 'Email não enviado' }
+    console.error('❌ Erro ao enviar email:', error);
+    return { success: false, message: error.message };
+  } finally {
+    await client.close();
   }
 }
+
 
 // Helper function to generate unique ID
 function generateId() {
