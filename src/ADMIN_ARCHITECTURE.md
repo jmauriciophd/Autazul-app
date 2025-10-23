@@ -24,15 +24,15 @@
 ┌─────────────────────────────────────────────────────────────────┐
 │                      AUTHCONTEXT.TSX                             │
 │                                                                  │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │ async function signIn(email, password)                   │  │
-│  │                                                          │  │
-│  │  1. Login no Supabase                                   │  │
-│  │  2. Obter userData da API                               │  │
-│  │  3. Verificar se email está em adminEmails[]           │  │
-│  │  4. Adicionar isAdmin: true/false                       │  │
-│  │  5. Salvar no state e localStorage                      │  │
-│  └──────────────────────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────────────┐    │
+│  │ async function signIn(email, password)                   │    │
+│  │                                                          │    │
+│  │  1. Login no Supabase                                    │    │
+│  │  2. Obter userData da API                                │    │
+│  │  3. Verificar se email está em adminEmails[]             │    │
+│  │  4. Adicionar isAdmin: true/false                        │    │
+│  │  5. Salvar no state e localStorage                       │    │
+│  └──────────────────────────────────────────────────────────┘    │
 └────────────────────────────┬────────────────────────────────────┘
                              │
                     ┌────────┴────────┐

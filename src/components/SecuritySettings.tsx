@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { api } from '../utils/api'
-import { useAuth } from '../utils/AuthContext'
+import { useAuth } from '../utils'
 import { notify } from '../utils/notifications'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog'
 import { Button } from './ui/button'

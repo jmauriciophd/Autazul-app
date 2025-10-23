@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useAuth } from '../utils/AuthContext'
+import { useAuth } from '../utils'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { AuthProvider, useAuth } from './utils/AuthContext'
+import { AuthProvider, useAuth } from './utils'
 import { AuthScreen } from './components/AuthScreen'
 import { ParentDashboard } from './components/ParentDashboard'
 import { ProfessionalDashboard } from './components/ProfessionalDashboard'
