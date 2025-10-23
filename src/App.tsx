@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { AuthProvider, useAuth } from './utils/AuthContext'
+import { AuthProvider, useAuth } from './utils/auth-export'
 import { AuthScreen } from './components/AuthScreen'
 import { ParentDashboard } from './components/ParentDashboard'
 import { ProfessionalDashboard } from './components/ProfessionalDashboard'
@@ -76,8 +76,8 @@ function AppContent() {
 
   // If admin panel is requested and user is authenticated, check if admin
   if (showAdminPanel && user) {
-    const adminEmails = ['jmauriciophd@gmail.com', 'webservicesbsb@gmail.com']
-    if (adminEmails.includes(user.email?.toLowerCase())) {
+    // Admin check is done by server via environment variables
+    if (user.isAdmin) {
       return <AdminPanel />
     }
   }

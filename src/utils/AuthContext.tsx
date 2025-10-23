@@ -52,12 +52,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const { user: userData } = await api.getUser()
           console.log('User data fetched successfully:', userData)
           
-          // Check if user is admin
-          const adminEmails = ['jmauriciophd@gmail.com', 'webservicesbsb@gmail.com']
-          const isAdmin = adminEmails.includes(userData.email.toLowerCase())
+          // Check if user is admin - userData.isAdmin comes from server
+          // Server verifies against environment variables
+          const isAdmin = userData.isAdmin || false
           
-          // Restore active role from localStorage (persists between sessions)
-          const activeRole = localStorage.getItem('activeRole') as 'parent' | 'professional' | null
+          // Restore active role from session storage (not localStorage for security)
+          const activeRole = sessionStorage.getItem('activeRole') as 'parent' | 'professional' | null
           const role = activeRole || userData.role || 'parent'
           
           const userWithProfile = {
@@ -68,7 +68,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
           
           setUser(userWithProfile)
-          localStorage.setItem('user', JSON.stringify(userWithProfile))
         } catch (userError) {
           console.error('Error fetching user data:', userError)
           // If getting user fails, clear the session
@@ -97,12 +96,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       api.setToken(data.session.access_token)
       const { user: userData } = await api.getUser()
       
-      // Check if user is admin
-      const adminEmails = ['jmauriciophd@gmail.com', 'webservicesbsb@gmail.com']
-      const isAdmin = adminEmails.includes(userData.email.toLowerCase())
+      // Check if user is admin - userData.isAdmin comes from server
+      // Server verifies against environment variables
+      const isAdmin = userData.isAdmin || false
       
-      // Get selected profile from localStorage (set during login)
-      const selectedProfile = localStorage.getItem('selectedProfile') as 'parent' | 'professional' | null
+      // Get selected profile from sessionStorage (set during login)
+      const selectedProfile = sessionStorage.getItem('selectedProfile') as 'parent' | 'professional' | null
       const activeRole = selectedProfile || userData.role || 'parent'
       
       // Save active role for this session
@@ -114,8 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       
       setUser(userWithProfile)
-      localStorage.setItem('user', JSON.stringify(userWithProfile))
-      localStorage.setItem('activeRole', activeRole)
+      sessionStorage.setItem('activeRole', activeRole)
     }
   }
 
@@ -132,8 +130,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     api.setToken(null)
     setUser(null)
     localStorage.removeItem('auth_token')
-    localStorage.removeItem('user')
-    // Keep selectedProfile and activeRole for next login (persist preference)
+    sessionStorage.removeItem('activeRole')
+    sessionStorage.removeItem('selectedProfile')
   }
 
   return (

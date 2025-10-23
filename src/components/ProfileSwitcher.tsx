@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useAuth } from '../utils/AuthContext'
+import { useAuth } from '../utils/auth-export'
 import { Button } from './ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog'
 import { RadioGroup, RadioGroupItem } from './ui/radio-group'
@@ -12,9 +12,9 @@ export function ProfileSwitcher() {
   const [selectedProfile, setSelectedProfile] = useState<'parent' | 'professional'>(user?.role || 'parent')
 
   function handleSwitchProfile() {
-    // Save selected profile
-    localStorage.setItem('selectedProfile', selectedProfile)
-    localStorage.setItem('activeRole', selectedProfile)
+    // Save selected profile in sessionStorage
+    sessionStorage.setItem('selectedProfile', selectedProfile)
+    sessionStorage.setItem('activeRole', selectedProfile)
     
     // Close dialog
     setOpen(false)
