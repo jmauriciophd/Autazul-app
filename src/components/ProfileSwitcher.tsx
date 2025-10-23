@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useAuth } from '../utils/auth-export'
+import { useAuth } from '../utils/AuthContext'
 import { Button } from './ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog'
 import { RadioGroup, RadioGroupItem } from './ui/radio-group'
