@@ -150,3 +150,7 @@ export function useAuth() {
   }
   return context
 }
+
+// Export explícito para garantir que não seja removido pelo tree-shaking
+export { AuthContext }
+export type { User, AuthContextType }

@@ -15,97 +15,49 @@ const supabase = createClient(
 )
 
 // ===== EMAIL CONFIGURATION =====
-
 // SMTP Configuration
 const SMTP_CONFIG = {
-  user: 'webservicesbsb@gmail.com',
-  pass: 'Akmcbhtj1',
+  user: Deno.env.get('SMTP_USER'),
+  pass: Deno.env.get('SMTP_PASS'),  // senha de app do Gmail
   host: 'smtp.gmail.com',
   port: 587,
-  secure: false, // Use TLS
-}
+  secure: false, // TLS
+};
+
+import { SmtpClient } from "https://deno.land/x/smtp/mod.ts";
+
+
 
 // Email sending function using SMTP
 async function sendEmail(to: string, subject: string, html: string) {
+  const client = new SmtpClient();
   try {
-    console.log('📧 Preparando envio de email...')
-    console.log('Para:', to)
-    console.log('Assunto:', subject)
-    
-    // IMPORTANTE: Para envio real de emails, você tem algumas opções:
-    
-    // OPÇÃO 1: Usar SendGrid (Recomendado para produção)
-    // const SENDGRID_API_KEY = Deno.env.get('SENDGRID_API_KEY')
-    // if (SENDGRID_API_KEY) {
-    //   const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
-    //     method: 'POST',
-    //     headers: {
-    //       'Authorization': `Bearer ${SENDGRID_API_KEY}`,
-    //       'Content-Type': 'application/json',
-    //     },
-    //     body: JSON.stringify({
-    //       personalizations: [{ to: [{ email: to }] }],
-    //       from: { email: 'noreply@autazul.com', name: 'Autazul' },
-    //       subject: subject,
-    //       content: [{ type: 'text/html', value: html }]
-    //     })
-    //   })
-    //   if (response.ok) {
-    //     console.log('✅ Email enviado via SendGrid')
-    //     return { success: true }
-    //   }
-    // }
-    
-    // OPÇÃO 2: Usar Resend (Alternativa simples)
-    // const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
-    // if (RESEND_API_KEY) {
-    //   const response = await fetch('https://api.resend.com/emails', {
-    //     method: 'POST',
-    //     headers: {
-    //       'Authorization': `Bearer ${RESEND_API_KEY}`,
-    //       'Content-Type': 'application/json',
-    //     },
-    //     body: JSON.stringify({
-    //       from: 'Autazul <noreply@autazul.com>',
-    //       to: [to],
-    //       subject: subject,
-    //       html: html
-    //     })
-    //   })
-    //   if (response.ok) {
-    //     console.log('✅ Email enviado via Resend')
-    //     return { success: true }
-    //   }
-    // }
-    
-    // OPÇÃO 3: SMTP via Gmail (Requer senha de aplicativo)
-    // Visite: https://myaccount.google.com/apppasswords
-    // Gere uma senha de aplicativo e substitua 'Akmcbhtj1'
-    
-    // Por enquanto, vamos logar o email no console
-    console.log('⚠️ MODO DE DESENVOLVIMENTO - Email não será enviado')
-    console.log('ℹ️ Para envio real, configure uma das opções acima')
-    console.log('')
-    console.log('=== PREVIEW DO EMAIL ===')
-    console.log('De: Autazul <noreply@autazul.com>')
-    console.log('Para:', to)
-    console.log('Assunto:', subject)
-    console.log('---')
-    console.log(html.substring(0, 500) + '...')
-    console.log('=======================')
-    console.log('')
-    
-    // Retornar sucesso para não bloquear o fluxo
-    // Mas o email não será enviado de verdade
-    return { success: true, message: 'Email preparado (modo dev - não enviado)' }
-    
+    console.log('📧 Conectando ao SMTP...')
+    await client.connect({
+      hostname: SMTP_CONFIG.host,
+      port: SMTP_CONFIG.port,
+      username: SMTP_CONFIG.user,
+      password: SMTP_CONFIG.pass,
+      tls: SMTP_CONFIG.secure
+    });
+
+    await client.send({
+      from: SMTP_CONFIG.user,
+      to,
+      subject,
+      content: html,
+    });
+
+    console.log('✅ Email enviado com sucesso!')
+    return { success: true };
   } catch (error) {
-    console.error('❌ Erro ao preparar email:', error)
-    // Não falhar - apenas logar erro
-    console.log('⚠️ Continuando sem envio de email')
-    return { success: false, message: 'Email não enviado' }
+    console.error('❌ Erro ao enviar email:', error);
+    return { success: false, message: error.message };
+  } finally {
+    await client.close();
   }
 }
+
 
 // Helper function to generate unique ID
 function generateId() {
@@ -3133,232 +3085,5 @@ async function sendEventNotificationEmail(email: string, name: string, eventDeta
   console.log('Template:', emailTemplate)
   console.log('======================================')
 }
-
-// ===== FEEDBACK ROUTE =====
-
-app.post('/make-server-a07d0a8e/feedback', async (c) => {
-  try {
-    const accessToken = c.req.header('Authorization')?.split(' ')[1]
-    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
-    if (error || !user) {
-      return c.json({ error: 'Unauthorized' }, 401)
-    }
-
-    const { rating, feedback } = await c.req.json()
-
-    if (!rating || rating < 1 || rating > 5) {
-      return c.json({ error: 'Rating deve ser entre 1 e 5' }, 400)
-    }
-
-    const userData = await kv.get(`user:${user.id}`)
-    const userName = userData?.name || user.email || 'Usuário'
-    const userEmail = userData?.email || user.email || 'Não informado'
-    const userRole = userData?.role === 'parent' ? 'Pai/Responsável' : 'Profissional'
-
-    // Create feedback record
-    const feedbackId = generateId()
-    const feedbackRecord = {
-      id: feedbackId,
-      userId: user.id,
-      userName,
-      userEmail,
-      userRole,
-      rating,
-      feedback: feedback || '',
-      createdAt: new Date().toISOString()
-    }
-
-    await kv.set(`feedback:${feedbackId}`, feedbackRecord)
-
-    // Add to feedbacks list
-    const allFeedbacks = await kv.get('feedbacks:all') || []
-    await kv.set('feedbacks:all', [feedbackId, ...allFeedbacks])
-
-    // Generate rating stars for email
-    const stars = '⭐'.repeat(rating) + '☆'.repeat(5 - rating)
-    const ratingText = 
-      rating === 1 ? 'Muito insatisfeito' :
-      rating === 2 ? 'Insatisfeito' :
-      rating === 3 ? 'Neutro' :
-      rating === 4 ? 'Satisfeito' :
-      'Muito satisfeito'
-
-    // Send email to admin
-    const emailHtml = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <style>
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background-color: #f5f7fa;
-      margin: 0;
-      padding: 0;
-    }
-    .container {
-      max-width: 600px;
-      margin: 40px auto;
-      background-color: #ffffff;
-      border-radius: 12px;
-      overflow: hidden;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    }
-    .header {
-      background: linear-gradient(135deg, #15C3D6 0%, #5C8599 100%);
-      padding: 30px 20px;
-      text-align: center;
-    }
-    .header h1 {
-      color: #ffffff;
-      margin: 0;
-      font-size: 28px;
-    }
-    .header .icon {
-      font-size: 48px;
-      margin-bottom: 10px;
-    }
-    .content {
-      padding: 30px;
-    }
-    .rating-section {
-      text-align: center;
-      padding: 20px;
-      background: linear-gradient(135deg, #fff5e6 0%, #ffe6cc 100%);
-      border-radius: 8px;
-      margin-bottom: 20px;
-    }
-    .rating-section .stars {
-      font-size: 32px;
-      margin: 10px 0;
-    }
-    .rating-section .rating-text {
-      font-size: 18px;
-      font-weight: 600;
-      color: #5C8599;
-    }
-    .info-box {
-      background-color: #f8f9fa;
-      border-left: 4px solid #15C3D6;
-      padding: 15px;
-      margin: 20px 0;
-      border-radius: 4px;
-    }
-    .info-box .label {
-      color: #5C8599;
-      font-weight: 600;
-      font-size: 12px;
-      text-transform: uppercase;
-      margin-bottom: 5px;
-    }
-    .info-box .value {
-      color: #373737;
-      font-size: 16px;
-    }
-    .feedback-text {
-      background-color: #f8f9fa;
-      padding: 20px;
-      border-radius: 8px;
-      border: 1px solid #e1e4e8;
-      margin: 20px 0;
-    }
-    .feedback-text p {
-      color: #373737;
-      line-height: 1.6;
-      margin: 0;
-      white-space: pre-wrap;
-    }
-    .footer {
-      background-color: #f8f9fa;
-      padding: 20px;
-      text-align: center;
-      border-top: 1px solid #e1e4e8;
-    }
-    .footer p {
-      color: #6c757d;
-      font-size: 12px;
-      margin: 5px 0;
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <div class="icon">💬</div>
-      <h1>Novo Feedback Recebido</h1>
-    </div>
-    
-    <div class="content">
-      <div class="rating-section">
-        <div class="stars">${stars}</div>
-        <div class="rating-text">${ratingText}</div>
-      </div>
-
-      <div class="info-box">
-        <div class="label">Usuário</div>
-        <div class="value">${userName}</div>
-      </div>
-
-      <div class="info-box">
-        <div class="label">Email</div>
-        <div class="value">${userEmail}</div>
-      </div>
-
-      <div class="info-box">
-        <div class="label">Perfil</div>
-        <div class="value">${userRole}</div>
-      </div>
-
-      <div class="info-box">
-        <div class="label">Data/Hora</div>
-        <div class="value">${new Date().toLocaleString('pt-BR', { 
-          dateStyle: 'full', 
-          timeStyle: 'short',
-          timeZone: 'America/Sao_Paulo'
-        })}</div>
-      </div>
-
-      ${feedback ? `
-      <div style="margin-top: 20px;">
-        <div class="info-box">
-          <div class="label">Sugestões de Melhoria</div>
-        </div>
-        <div class="feedback-text">
-          <p>${feedback}</p>
-        </div>
-      </div>
-      ` : ''}
-    </div>
-
-    <div class="footer">
-      <p><strong>Autazul</strong> - Sistema de Acompanhamento</p>
-      <p>Este é um email automático. Não responda esta mensagem.</p>
-    </div>
-  </div>
-</body>
-</html>
-    `
-
-    try {
-      await sendEmail(
-        'webservicesbsb@gmail.com',
-        `⭐ Novo Feedback no Autazul - ${rating} estrelas`,
-        emailHtml
-      )
-      console.log('✅ Email de feedback enviado com sucesso')
-    } catch (emailError) {
-      console.error('❌ Erro ao enviar email de feedback:', emailError)
-      // Continua mesmo se o email falhar - feedback já foi salvo
-    }
-
-    return c.json({ 
-      success: true, 
-      message: 'Feedback enviado com sucesso' 
-    })
-  } catch (error) {
-    console.log('Error submitting feedback:', error)
-    return c.json({ error: String(error) }, 500)
-  }
-})
 
 Deno.serve(app.fetch)
