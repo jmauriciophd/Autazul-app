@@ -8,15 +8,16 @@ const supabase = createClient(
   publicAnonKey
 )
 
-interface User {
+export interface User {
   id: string
   email: string
   name: string
   role: 'parent' | 'professional'
   isAdmin?: boolean
+  baseRole?: 'parent' | 'professional'
 }
 
-interface AuthContextType {
+export interface AuthContextType {
   user: User | null
   loading: boolean
   signIn: (email: string, password: string) => Promise<void>
@@ -24,7 +25,7 @@ interface AuthContextType {
   signOut: () => Promise<void>
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined)
+export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
@@ -148,7 +149,3 @@ export function useAuth() {
   }
   return context
 }
-
-// Export explícito para garantir que não seja removido pelo tree-shaking
-export { AuthContext }
-export type { User, AuthContextType }
