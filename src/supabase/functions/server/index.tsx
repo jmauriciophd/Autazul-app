@@ -109,10 +109,31 @@ app.post('/make-server-a07d0a8e/signup', async (c) => {
 // Login route (handled by Supabase client, but we can add user data fetching)
 app.post('/make-server-a07d0a8e/get-user', async (c) => {
   try {
-    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const authHeader = c.req.header('Authorization')
+    if (!authHeader) {
+      console.log('Missing authorization header in get-user request')
+      return c.json({ 
+        error: 'Missing authorization header',
+        message: 'You must be logged in to access this endpoint'
+      }, 401)
+    }
+
+    const accessToken = authHeader.split(' ')[1]
     if (!accessToken) {
-      console.log('No access token provided in get-user request')
-      return c.json({ error: 'No access token provided' }, 401)
+      console.log('Invalid authorization header format in get-user request')
+      return c.json({ 
+        error: 'Invalid authorization header',
+        message: 'Authorization header must be in format: Bearer <token>'
+      }, 401)
+    }
+
+    // Check if it's the public anon key (not a session token)
+    if (accessToken === Deno.env.get('SUPABASE_ANON_KEY')) {
+      console.log('Received public anon key instead of session token')
+      return c.json({ 
+        error: 'Invalid token',
+        message: 'You must be logged in with a valid session to access user data'
+      }, 401)
     }
 
     console.log('Getting user with token:', accessToken.substring(0, 20) + '...')
@@ -133,9 +154,12 @@ app.post('/make-server-a07d0a8e/get-user', async (c) => {
     // Try to get user data from KV store
     const userData = await kv.get(`user:${user.id}`)
     
+    // Check if user is admin (using environment variables)
+    const userIsAdmin = isAdmin(user.email || '')
+    
     if (userData) {
       console.log('User data found in KV store:', userData)
-      return c.json({ user: userData })
+      return c.json({ user: { ...userData, isAdmin: userIsAdmin } })
     }
     
     // Fallback to user metadata
@@ -144,7 +168,8 @@ app.post('/make-server-a07d0a8e/get-user', async (c) => {
       id: user.id,
       email: user.email,
       name: user.user_metadata.name || user.email,
-      role: user.user_metadata.role || 'parent'
+      role: user.user_metadata.role || 'parent',
+      isAdmin: userIsAdmin
     }
     
     return c.json({ user: fallbackUser })
@@ -1709,7 +1734,13 @@ app.put('/make-server-a07d0a8e/appointments/:appointmentId', async (c) => {
 
 // ===== ADMIN ROUTES =====
 
-const ADMIN_EMAILS = ['jmauriciophd@gmail.com', 'webservicesbsb@gmail.com']
+// Get admin emails from environment variables
+const ADMIN_EMAILS = [
+  Deno.env.get('ADMIN_USER1') || '',
+  Deno.env.get('ADMIN_USER2') || ''
+].filter(email => email.length > 0).map(email => email.toLowerCase())
+
+console.log('Admin emails configured:', ADMIN_EMAILS.length > 0 ? `${ADMIN_EMAILS.length} admins` : 'No admins configured')
 
 // Check if user is admin
 function isAdmin(email: string): boolean {
@@ -2258,6 +2289,99 @@ app.get('/make-server-a07d0a8e/check-2fa-required', async (c) => {
   }
 })
 
+// ===== FEEDBACK ROUTE =====
+
+app.post('/make-server-a07d0a8e/feedback', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const { rating, feedback } = await c.req.json()
+
+    // Get user data
+    const userData = await kv.get(`user:${user.id}`)
+    const userName = userData?.name || user.email
+
+    // Save feedback to KV store
+    const feedbackId = generateId()
+    const feedbackData = {
+      id: feedbackId,
+      userId: user.id,
+      userName,
+      userEmail: user.email,
+      rating,
+      feedback,
+      createdAt: new Date().toISOString()
+    }
+
+    await kv.set(`feedback:${feedbackId}`, feedbackData)
+
+    // Generate stars emoji
+    const stars = '⭐'.repeat(rating)
+
+    // Send email to webservicesbsb@gmail.com
+    const emailHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+    .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
+    .rating { font-size: 32px; margin: 20px 0; text-align: center; }
+    .info { background: white; padding: 15px; margin: 15px 0; border-left: 4px solid #3b82f6; border-radius: 4px; }
+    .feedback-text { background: white; padding: 20px; margin: 20px 0; border-radius: 8px; border: 1px solid #e5e7eb; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>⭐ Novo Feedback no Autazul</h1>
+    </div>
+    <div class="content">
+      <div class="rating">${stars}</div>
+      <h2 style="text-align: center; color: #3b82f6;">${rating} de 5 estrelas</h2>
+      
+      <div class="info">
+        <p><strong>👤 Usuário:</strong> ${userName}</p>
+        <p><strong>📧 Email:</strong> ${user.email}</p>
+        <p><strong>🕒 Data:</strong> ${new Date().toLocaleString('pt-BR')}</p>
+      </div>
+      
+      <div class="feedback-text">
+        <h3 style="color: #3b82f6; margin-top: 0;">💬 Comentário:</h3>
+        <p>${feedback || 'Sem comentário'}</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+    `
+
+    try {
+      await sendEmail(
+        Deno.env.get('SMTP_USER') || 'webservicesbsb@gmail.com',
+        `⭐ Novo Feedback no Autazul - ${rating} estrelas`,
+        emailHtml
+      )
+      console.log('✅ Email de feedback enviado com sucesso')
+    } catch (emailError) {
+      console.error('❌ Erro ao enviar email de feedback:', emailError)
+      // Don't fail the request if email fails
+    }
+
+    return c.json({ success: true, message: 'Feedback enviado com sucesso!' })
+  } catch (error) {
+    console.log('Error submitting feedback:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
 // ===== EMAIL HELPER FUNCTIONS =====
 
 function generateChildShareEmailTemplate(parentName: string, fromParentName: string, childName: string): string {
@@ -2796,9 +2920,6 @@ function generateInviteEmailTemplate(professionalName: string, parentName: strin
 }
 
 async function sendVerificationEmail(email: string, name: string, code: string) {
-  // In a real implementation, this would use an email service like SendGrid, AWS SES, etc.
-  // For now, we'll log it (in production, you would actually send the email)
-  
   const emailTemplate = `
 <!DOCTYPE html>
 <html>
@@ -2959,131 +3080,6 @@ async function sendVerificationEmail(email: string, name: string, code: string) 
     // Não vamos falhar a requisição se o email falhar, apenas logar
     console.log('⚠️ Continuando sem envio de email (modo fallback)')
   }
-  // })
-}
-
-async function sendEventNotificationEmail(email: string, name: string, eventDetails: any, childName: string) {
-  const emailTemplate = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body {
-      font-family: 'Nunito', Arial, sans-serif;
-      background-color: #f5f5f5;
-      margin: 0;
-      padding: 0;
-    }
-    .container {
-      max-width: 600px;
-      margin: 40px auto;
-      background-color: #ffffff;
-      border-radius: 16px;
-      overflow: hidden;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    }
-    .header {
-      background-color: #46B0FD;
-      padding: 30px 20px;
-      text-align: center;
-    }
-    .header h1 {
-      color: #ffffff;
-      margin: 0;
-      font-family: 'Roboto Condensed', sans-serif;
-      font-size: 32px;
-    }
-    .content {
-      padding: 40px 30px;
-    }
-    .greeting {
-      color: #5C8599;
-      font-size: 20px;
-      margin-bottom: 20px;
-    }
-    .event-box {
-      background-color: #f0f9ff;
-      border-left: 4px solid #15C3D6;
-      padding: 20px;
-      margin: 20px 0;
-      border-radius: 4px;
-    }
-    .event-detail {
-      margin: 10px 0;
-      color: #373737;
-    }
-    .event-detail strong {
-      color: #5C8599;
-    }
-    .button {
-      display: inline-block;
-      background-color: #15C3D6;
-      color: #ffffff !important;
-      padding: 12px 30px;
-      border-radius: 8px;
-      text-decoration: none;
-      font-weight: bold;
-      margin: 20px 0;
-    }
-    .footer {
-      background-color: #f5f5f5;
-      padding: 30px;
-      text-align: center;
-      border-top: 1px solid #e0e0e0;
-    }
-    .footer p {
-      color: #9ca3af;
-      font-size: 12px;
-      margin: 5px 0;
-    }
-    .footer a {
-      color: #15C3D6;
-      text-decoration: none;
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h1>🧩 Autazul</h1>
-    </div>
-    <div class="content">
-      <p class="greeting">Olá, ${name}!</p>
-      <p>Um novo evento foi registrado para <strong>${childName}</strong>:</p>
-      
-      <div class="event-box">
-        <div class="event-detail"><strong>Tipo:</strong> ${eventDetails.type}</div>
-        <div class="event-detail"><strong>Data:</strong> ${new Date(eventDetails.date).toLocaleDateString('pt-BR')}</div>
-        <div class="event-detail"><strong>Hora:</strong> ${eventDetails.time}</div>
-        <div class="event-detail"><strong>Gravidade:</strong> ${eventDetails.severity}</div>
-        <div class="event-detail"><strong>Descrição:</strong> ${eventDetails.description}</div>
-      </div>
-      
-      <center>
-        <a href="${Deno.env.get('SUPABASE_URL')}" class="button">Ver no Sistema</a>
-      </center>
-    </div>
-    <div class="footer">
-      <p><strong>Autazul - Acompanhamento e Cuidado</strong></p>
-      <p>
-        <a href="mailto:suporte@autazul.com">Suporte</a> | 
-        <a href="#">Política de Privacidade</a>
-      </p>
-      <p>© 2025 Autazul. Todos os direitos reservados.</p>
-    </div>
-  </div>
-</body>
-</html>
-  `
-  
-  console.log('=== EMAIL DE NOTIFICAÇÃO DE EVENTO ===')
-  console.log('Para:', email)
-  console.log('Nome:', name)
-  console.log('Evento:', eventDetails)
-  console.log('Template:', emailTemplate)
-  console.log('======================================')
 }
 
 Deno.serve(app.fetch)
