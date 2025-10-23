@@ -437,7 +437,7 @@ app.post('/make-server-a07d0a8e/professionals/invite-by-email', async (c) => {
     await kv.set(`invitation:${inviteId}`, invitation)
     
     // Add to professional's notifications
-    const notifKey = `notifications:${professional.id}`
+    const notifKey = `notifications:user:${professional.id}`
     const existingNotifs = await kv.get(notifKey) || []
     await kv.set(notifKey, [inviteId, ...existingNotifs])
 
@@ -481,7 +481,7 @@ app.get('/make-server-a07d0a8e/invitations/pending', async (c) => {
       return c.json({ error: 'Unauthorized' }, 401)
     }
 
-    const notifKey = `notifications:${user.id}`
+    const notifKey = `notifications:user:${user.id}`
     const notifIds = await kv.get(notifKey) || []
     
     const invitations = []
@@ -555,7 +555,7 @@ app.post('/make-server-a07d0a8e/invitations/:invitationId/accept', async (c) => 
 
     await kv.set(`notification:${notifId}`, notification)
     
-    const parentNotifKey = `notifications:${invitation.fromUserId}`
+    const parentNotifKey = `notifications:user:${invitation.fromUserId}`
     const parentNotifs = await kv.get(parentNotifKey) || []
     await kv.set(parentNotifKey, [notifId, ...parentNotifs])
 
@@ -1112,7 +1112,7 @@ app.post('/make-server-a07d0a8e/coparents/invite-by-email', async (c) => {
     await kv.set(`invitation:${inviteId}`, invitation)
     
     // Add to co-parent's notifications
-    const notifKey = `notifications:${coParent.id}`
+    const notifKey = `notifications:user:${coParent.id}`
     const existingNotifs = await kv.get(notifKey) || []
     await kv.set(notifKey, [inviteId, ...existingNotifs])
 
@@ -1379,7 +1379,7 @@ app.post('/make-server-a07d0a8e/children/:childId/share', async (c) => {
     await kv.set(`invitation:${inviteId}`, invitation)
     
     // Add to target parent's notifications
-    const notifKey = `notifications:${targetParent.id}`
+    const notifKey = `notifications:user:${targetParent.id}`
     const existingNotifs = await kv.get(notifKey) || []
     await kv.set(notifKey, [inviteId, ...existingNotifs])
 

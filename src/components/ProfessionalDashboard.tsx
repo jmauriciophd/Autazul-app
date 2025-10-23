@@ -1,3 +1,7 @@
+import { useState, useEffect } from 'react'
+import { useAuth } from '../utils'
+import { api } from '../utils/api'
+import { notify } from '../utils/notifications'
 import { autazulLogo } from '../assets/logo'
 import { NotificationsPopover } from './NotificationsPopover'
 import { FeedbackDialog } from './FeedbackDialog'
@@ -10,6 +14,15 @@ import { ScrollArea } from './ui/scroll-area'
 import { AppointmentsCard } from './AppointmentsCard'
 import { AdBanner } from './AdBanner'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
+import { Button } from './ui/button'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog'
+import { Input } from './ui/input'
+import { Label } from './ui/label'
+import { Textarea } from './ui/textarea'
+import { Separator } from './ui/separator'
+import { Calendar, Users, FileText, Plus, LogOut, Shield, Crown, Clock } from 'lucide-react'
+import { toast } from 'sonner@2.0.3'
 
 interface Child {
   id: string
