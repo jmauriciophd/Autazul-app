@@ -15,46 +15,49 @@ const supabase = createClient(
 )
 
 // ===== EMAIL CONFIGURATION =====
-// SMTP Configuration
+import nodemailer from "npm:nodemailer@6.9.7";
+
 const SMTP_CONFIG = {
   user: Deno.env.get('SMTP_USER'),
   pass: Deno.env.get('SMTP_PASS'),  // senha de app do Gmail
   host: 'smtp.gmail.com',
   port: 587,
-  secure: false, // TLS
 };
 
-import { SmtpClient } from "https://deno.land/x/smtp/mod.ts";
-
-
-
-// Email sending function using SMTP
+// Email sending function using nodemailer
 async function sendEmail(to: string, subject: string, html: string) {
-  const client = new SmtpClient();
+  if (!SMTP_CONFIG.user || !SMTP_CONFIG.pass) {
+    console.error('❌ Credenciais SMTP não configuradas');
+    return { success: false, message: 'SMTP credentials not configured' };
+  }
+
   try {
-    console.log('📧 Conectando ao SMTP...')
-    await client.connect({
-      hostname: SMTP_CONFIG.host,
+    console.log('📧 Configurando transporter SMTP...');
+    
+    const transporter = nodemailer.createTransport({
+      host: SMTP_CONFIG.host,
       port: SMTP_CONFIG.port,
-      username: SMTP_CONFIG.user,
-      password: SMTP_CONFIG.pass,
-      tls: SMTP_CONFIG.secure
+      secure: false, // Use STARTTLS
+      auth: {
+        user: SMTP_CONFIG.user,
+        pass: SMTP_CONFIG.pass,
+      },
     });
 
-    await client.send({
+    console.log('📧 Enviando email...');
+    
+    const info = await transporter.sendMail({
       from: SMTP_CONFIG.user,
       to,
       subject,
-      content: html,
+      html,
     });
 
-    console.log('✅ Email enviado com sucesso!')
+    console.log('✅ Email enviado com sucesso! Message ID:', info.messageId);
     return { success: true };
   } catch (error) {
     console.error('❌ Erro ao enviar email:', error);
     return { success: false, message: error.message };
-  } finally {
-    await client.close();
   }
 }
 

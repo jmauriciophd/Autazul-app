@@ -21,10 +21,11 @@ import { AdminPanel } from './AdminPanel'
 import { ProfileSwitcher } from './ProfileSwitcher'
 import { EventCard } from './EventCard'
 import { EventStats } from './EventStats'
+import { ReportsGenerator } from './ReportsGenerator'
 import { Badge } from './ui/badge'
 import { ScrollArea } from './ui/scroll-area'
 import { Separator } from './ui/separator'
-import { Calendar as CalendarIcon, Users, FileText, Plus, Copy, Check, LogOut, Shield, Crown, ChevronLeft, ChevronRight, Settings, Edit, UserPlus, Trash2 } from 'lucide-react'
+import { Calendar as CalendarIcon, Users, FileText, Plus, Copy, Check, LogOut, Shield, Crown, ChevronLeft, ChevronRight, Settings, Edit, UserPlus, Trash2, BarChart3 } from 'lucide-react'
 
 interface Child {
   id: string
@@ -728,17 +729,31 @@ export function ParentDashboard() {
                 {/* Statistics */}
                 <EventStats events={events} />
 
-                {/* Add Event Section */}
-                <Card>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <CardTitle>Registrar Evento</CardTitle>
-                        <CardDescription>
-                          Registre eventos importantes que acontecem com {selectedChild.name}
-                        </CardDescription>
-                      </div>
-                      <Dialog open={addEventDialogOpen} onOpenChange={setAddEventDialogOpen}>
+                {/* Main Tabs */}
+                <Tabs defaultValue="events" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="events">
+                      <CalendarIcon className="w-4 h-4 mr-2" />
+                      Eventos
+                    </TabsTrigger>
+                    <TabsTrigger value="reports">
+                      <BarChart3 className="w-4 h-4 mr-2" />
+                      Relatórios
+                    </TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="events" className="space-y-4 mt-4">
+                    {/* Add Event Section */}
+                    <Card>
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <CardTitle>Registrar Evento</CardTitle>
+                            <CardDescription>
+                              Registre eventos importantes que acontecem com {selectedChild.name}
+                            </CardDescription>
+                          </div>
+                          <Dialog open={addEventDialogOpen} onOpenChange={setAddEventDialogOpen}>
                         <DialogTrigger asChild>
                           <Button>
                             <Plus className="w-4 h-4 mr-2" />
@@ -913,11 +928,20 @@ export function ParentDashboard() {
                     )}
                   </CardContent>
                 </Card>
-              </>
-            )}
-          </div>
-        </div>
+              </TabsContent>
+
+              <TabsContent value="reports" className="space-y-4 mt-4">
+                <ReportsGenerator 
+                  childId={selectedChild.id} 
+                  childName={selectedChild.name} 
+                />
+              </TabsContent>
+            </Tabs>
+          </>
+        )}
       </div>
+    </div>
+  </div>
 
       {/* Event Details Dialog */}
       <Dialog open={!!selectedEvent} onOpenChange={() => setSelectedEvent(null)}>
