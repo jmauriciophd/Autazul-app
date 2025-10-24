@@ -42,20 +42,33 @@ Este documento serve como índice para toda a documentação do sistema Autazul.
    - Métricas de sucesso
    - **LEIA ESTE para overview rápido**
 
+### 🔧 Correções Recentes
+
+5. **[CORRECAO_NOTIFICACOES_CONVITES.md](CORRECAO_NOTIFICACOES_CONVITES.md)** ✅ NOVO
+   - Correção de erros "Unauthorized" em notificações e convites
+   - Implementação das rotas faltantes
+   - Documentação completa das APIs
+   - Status: RESOLVIDO
+
+6. **[CORRECAO_COPARENT_ACEITAR.md](CORRECAO_COPARENT_ACEITAR.md)** ✅ NOVO
+   - Correção do link de convite de co-responsável
+   - Alteração do botão para "Aceitar"
+   - Novo ícone de coparticipação
+   - Status: RESOLVIDO
+
+7. **[CORRECAO_WORKER_CACHE.md](CORRECAO_WORKER_CACHE.md)** ✅ NOVO
+   - Correção do erro de função duplicada no worker
+   - Solução para cache do Deno worker
+   - Verificação da rota /get-user
+   - Status: RESOLVIDO
+
 ### 👥 Documentação do Usuário
 
-5. **[GUIA_USUARIO_NOVAS_FUNCIONALIDADES.md](GUIA_USUARIO_NOVAS_FUNCIONALIDADES.md)** ⭐ USUÁRIOS
-   - Guia completo para usuários finais
-   - Como usar notificações
-   - Como compartilhar filhos
-   - Como adicionar co-responsáveis
-   - Casos de uso práticos
-   - Perguntas frequentes
-   - **LEIA ESTE se você é usuário do sistema**
+8. **[GUIA_USUARIO_NOVAS_FUNCIONALIDADES.md](GUIA_USUARIO_NOVAS_FUNCIONALIDADES.md)** ⭐ USUÁRIOS
 
 ### 🔒 Segurança e Conformidade
 
-6. **[SEGURANCA_PRIVACIDADE_LGPD.md](SEGURANCA_PRIVACIDADE_LGPD.md)** ⭐ COMPLIANCE
+9. **[SEGURANCA_PRIVACIDADE_LGPD.md](SEGURANCA_PRIVACIDADE_LGPD.md)** ⭐ COMPLIANCE
    - Medidas de segurança implementadas
    - Conformidade com LGPD
    - Proteção de dados de menores
@@ -69,40 +82,40 @@ Este documento serve como índice para toda a documentação do sistema Autazul.
 
 ### Logos e Imagens
 
-7. **[assets/README.md](assets/README.md)**
-   - Como funcionam os assets
-   - Sistema de prioridade PNG/SVG
-   - Estrutura de arquivos
+10. **[assets/README.md](assets/README.md)**
+    - Como funcionam os assets
+    - Sistema de prioridade PNG/SVG
+    - Estrutura de arquivos
 
-8. **[assets/COMO_ADICIONAR_IMAGENS.md](assets/COMO_ADICIONAR_IMAGENS.md)**
-   - Tutorial passo a passo
-   - Como adicionar novas imagens
-   - Boas práticas
+11. **[assets/COMO_ADICIONAR_IMAGENS.md](assets/COMO_ADICIONAR_IMAGENS.md)**
+    - Tutorial passo a passo
+    - Como adicionar novas imagens
+    - Boas práticas
 
-9. **[COMO_FUNCIONA_LOGO.md](COMO_FUNCIONA_LOGO.md)**
-   - Explicação do sistema de logo
-   - Como trocar o logo
-   - Troubleshooting
+12. **[COMO_FUNCIONA_LOGO.md](COMO_FUNCIONA_LOGO.md)**
+    - Explicação do sistema de logo
+    - Como trocar o logo
+    - Troubleshooting
 
-10. **[GUIA_RAPIDO_ASSETS.md](GUIA_RAPIDO_ASSETS.md)**
+13. **[GUIA_RAPIDO_ASSETS.md](GUIA_RAPIDO_ASSETS.md)**
     - Guia rápido de referência
     - Comandos principais
 
-11. **[IMAGENS_AUTAZUL.md](IMAGENS_AUTAZUL.md)**
+14. **[IMAGENS_AUTAZUL.md](IMAGENS_AUTAZUL.md)**
     - Catálogo de imagens do sistema
     - URLs e referências
 
 ### Ícone de Coroa (Admin)
 
-12. **[README_ICONE_COROA.md](README_ICONE_COROA.md)**
+15. **[README_ICONE_COROA.md](README_ICONE_COROA.md)**
     - Sistema de ícone de admin
     - Como funciona
 
-13. **[SOLUCAO_ICONE_COROA.md](SOLUCAO_ICONE_COROA.md)**
+16. **[SOLUCAO_ICONE_COROA.md](SOLUCAO_ICONE_COROA.md)**
     - Solução de problemas
     - Troubleshooting
 
-14. **[GUIA_RAPIDO_COROA.md](GUIA_RAPIDO_COROA.md)**
+17. **[GUIA_RAPIDO_COROA.md](GUIA_RAPIDO_COROA.md)**
     - Guia rápido do ícone de coroa
 
 ---
@@ -111,21 +124,21 @@ Este documento serve como índice para toda a documentação do sistema Autazul.
 
 ### Documentação de Perfis
 
-15. **[SISTEMA_PERFIS_DOC.md](SISTEMA_PERFIS_DOC.md)**
+18. **[SISTEMA_PERFIS_DOC.md](SISTEMA_PERFIS_DOC.md)**
     - Documentação completa do sistema de perfis
     - Como funciona a troca de perfis
     - Arquitetura
 
-16. **[PERFIS_E_CONVITES_DOC.md](PERFIS_E_CONVITES_DOC.md)**
+19. **[PERFIS_E_CONVITES_DOC.md](PERFIS_E_CONVITES_DOC.md)**
     - Sistema de convites
     - Tipos de convites
     - Fluxos de aceitação
 
-17. **[RESUMO_PERFIS.md](RESUMO_PERFIS.md)**
+20. **[RESUMO_PERFIS.md](RESUMO_PERFIS.md)**
     - Resumo do sistema de perfis
     - Referência rápida
 
-18. **[MIGRACAO_PERFIS.md](MIGRACAO_PERFIS.md)**
+21. **[MIGRACAO_PERFIS.md](MIGRACAO_PERFIS.md)**
     - Histórico de migração
     - Mudanças implementadas
 
@@ -135,41 +148,41 @@ Este documento serve como índice para toda a documentação do sistema Autazul.
 
 ### Documentação Admin
 
-19. **[README_ADMIN.md](README_ADMIN.md)**
+22. **[README_ADMIN.md](README_ADMIN.md)**
     - Visão geral do painel admin
     - Funcionalidades
 
-20. **[ADMIN_ARCHITECTURE.md](ADMIN_ARCHITECTURE.md)**
+23. **[ADMIN_ARCHITECTURE.md](ADMIN_ARCHITECTURE.md)**
     - Arquitetura do sistema admin
     - Componentes e fluxos
 
-21. **[ADMIN_ACCESS_DOCUMENTATION.md](ADMIN_ACCESS_DOCUMENTATION.md)**
+24. **[ADMIN_ACCESS_DOCUMENTATION.md](ADMIN_ACCESS_DOCUMENTATION.md)**
     - Como acessar área admin
     - Controle de acesso
 
-22. **[ADMIN_QUICK_REFERENCE.md](ADMIN_QUICK_REFERENCE.md)**
+25. **[ADMIN_QUICK_REFERENCE.md](ADMIN_QUICK_REFERENCE.md)**
     - Referência rápida
     - Comandos principais
 
-23. **[INDEX_DOCUMENTACAO_ADMIN.md](INDEX_DOCUMENTACAO_ADMIN.md)**
+26. **[INDEX_DOCUMENTACAO_ADMIN.md](INDEX_DOCUMENTACAO_ADMIN.md)**
     - Índice específico de docs admin
 
-24. **[VISUAL_GUIDE_ADMIN.md](VISUAL_GUIDE_ADMIN.md)**
+27. **[VISUAL_GUIDE_ADMIN.md](VISUAL_GUIDE_ADMIN.md)**
     - Guia visual
     - Screenshots e exemplos
 
 ### Changelog e Correções
 
-25. **[CHANGELOG_ADMIN.md](CHANGELOG_ADMIN.md)**
+28. **[CHANGELOG_ADMIN.md](CHANGELOG_ADMIN.md)**
     - Histórico de mudanças admin
 
-26. **[RESUMO_IMPLEMENTACAO_ADMIN.md](RESUMO_IMPLEMENTACAO_ADMIN.md)**
+29. **[RESUMO_IMPLEMENTACAO_ADMIN.md](RESUMO_IMPLEMENTACAO_ADMIN.md)**
     - Resumo de implementação admin
 
-27. **[DIAGNOSTICO_ADMIN.md](DIAGNOSTICO_ADMIN.md)**
+30. **[DIAGNOSTICO_ADMIN.md](DIAGNOSTICO_ADMIN.md)**
     - Diagnóstico de problemas
 
-28. **[CORRECAO_BUILD_PRODUCAO.md](CORRECAO_BUILD_PRODUCAO.md)**
+31. **[CORRECAO_BUILD_PRODUCAO.md](CORRECAO_BUILD_PRODUCAO.md)**
     - Correções de build
     - Deploy em produção
 
@@ -179,27 +192,27 @@ Este documento serve como índice para toda a documentação do sistema Autazul.
 
 ### Guias de Teste
 
-29. **[TESTE_ACESSO_ADMIN.md](TESTE_ACESSO_ADMIN.md)**
+32. **[TESTE_ACESSO_ADMIN.md](TESTE_ACESSO_ADMIN.md)**
     - Como testar acesso admin
 
-30. **[TESTE_FUNCIONALIDADE_PAIS.md](TESTE_FUNCIONALIDADE_PAIS.md)**
+33. **[TESTE_FUNCIONALIDADE_PAIS.md](TESTE_FUNCIONALIDADE_PAIS.md)**
     - Teste de funcionalidades de pais
 
-31. **[TESTE_LOGO.md](TESTE_LOGO.md)**
+34. **[TESTE_LOGO.md](TESTE_LOGO.md)**
     - Teste do sistema de logo
 
-32. **[TESTE_RAPIDO.md](TESTE_RAPIDO.md)**
+35. **[TESTE_RAPIDO.md](TESTE_RAPIDO.md)**
     - Testes rápidos gerais
 
 ---
 
 ## 📝 OUTROS DOCUMENTOS
 
-33. **[Attributions.md](Attributions.md)**
+36. **[Attributions.md](Attributions.md)**
     - Atribuições e créditos
     - Bibliotecas utilizadas
 
-34. **[guidelines/Guidelines.md](guidelines/Guidelines.md)**
+37. **[guidelines/Guidelines.md](guidelines/Guidelines.md)**
     - Guidelines de desenvolvimento
     - Padrões de código
 
@@ -417,6 +430,6 @@ Documentação planejada:
 
 **Última Atualização**: 12/10/2025
 **Versão do Índice**: 2.0
-**Total de Documentos**: 34
+**Total de Documentos**: 37
 
 **Status**: ✅ Completo e Atualizado

@@ -1,3 +1,4 @@
+// Autazul Server - Updated 2025-10-24
 import { Hono } from 'npm:hono'
 import { cors } from 'npm:hono/cors'
 import { logger } from 'npm:hono/logger'
@@ -77,7 +78,7 @@ function generateToken() {
 // Signup - Always create as parent (base profile)
 app.post('/make-server-a07d0a8e/signup', async (c) => {
   try {
-    const { email, password, name } = await c.req.json()
+    const { email, password, name, consent } = await c.req.json()
     // Always create as 'parent' - this is the base profile
     const role = 'parent'
 
@@ -93,13 +94,15 @@ app.post('/make-server-a07d0a8e/signup', async (c) => {
       return c.json({ error: error.message }, 400)
     }
 
-    // Store user in KV with base role 'parent'
+    // Store user in KV with base role 'parent' and consent
     const userId = data.user.id
     await kv.set(`user:${userId}`, {
       id: userId,
       email,
       name,
-      role
+      role,
+      consent: consent !== undefined ? consent : true,
+      consentAcceptedAt: new Date().toISOString()
     })
 
     return c.json({ success: true, userId })
@@ -1831,7 +1834,17 @@ const ADMIN_EMAILS = [
 
 console.log('Admin emails configured:', ADMIN_EMAILS.length > 0 ? `${ADMIN_EMAILS.length} admins` : 'No admins configured')
 
-// Check if user is admin
+// Check if user is admin (async to check both env vars and KV store)
+async function isAdminCheck(email: string): Promise<boolean> {
+  if (ADMIN_EMAILS.includes(email.toLowerCase())) {
+    return true
+  }
+  
+  const adminList = await kv.get('admin_list') || []
+  return adminList.includes(email.toLowerCase())
+}
+
+// Sync version for backward compatibility
 function isAdmin(email: string): boolean {
   return ADMIN_EMAILS.includes(email.toLowerCase())
 }
@@ -3249,5 +3262,1273 @@ async function sendVerificationEmail(email: string, name: string, code: string) 
     console.log('⚠️ Continuando sem envio de email (modo fallback)')
   }
 }
+
+// Helper function to create notifications
+async function createNotification(
+  userId: string,
+  type: string,
+  title: string,
+  message: string,
+  relatedId?: string
+) {
+  const notificationId = generateId()
+  const notification = {
+    id: notificationId,
+    userId,
+    type,
+    title,
+    message,
+    relatedId,
+    read: false,
+    createdAt: new Date().toISOString()
+  }
+  
+  await kv.set(`notification:${notificationId}`, notification)
+  
+  // Add to user's notifications list
+  const userNotificationsKey = `notifications:user:${userId}`
+  const existingNotifications = await kv.get(userNotificationsKey) || []
+  await kv.set(userNotificationsKey, [notificationId, ...existingNotifications])
+  
+  return notification
+}
+
+// ===== NOTIFICATIONS ROUTES =====
+
+// Get user's notifications
+app.get('/make-server-a07d0a8e/notifications', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    
+    if (error || !user) {
+      console.log('Unauthorized access to /notifications - no valid token')
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    console.log(`📬 Loading notifications for user: ${user.id}`)
+    
+    // Get user's notification IDs
+    const userNotificationsKey = `notifications:user:${user.id}`
+    const notificationIds = await kv.get(userNotificationsKey) || []
+    
+    console.log(`Found ${notificationIds.length} notification IDs`)
+    
+    // Get full notification objects
+    const notifications = []
+    for (const notifId of notificationIds) {
+      const notif = await kv.get(`notification:${notifId}`)
+      if (notif) {
+        notifications.push(notif)
+      }
+    }
+    
+    console.log(`✅ Returning ${notifications.length} notifications`)
+    
+    return c.json({ notifications })
+  } catch (error) {
+    console.error('Error loading notifications:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// Mark notification as read
+app.put('/make-server-a07d0a8e/notifications/:notificationId/read', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const notificationId = c.req.param('notificationId')
+    const notification = await kv.get(`notification:${notificationId}`)
+    
+    if (!notification) {
+      return c.json({ error: 'Notification not found' }, 404)
+    }
+    
+    if (notification.userId !== user.id) {
+      return c.json({ error: 'Unauthorized' }, 403)
+    }
+    
+    notification.read = true
+    notification.readAt = new Date().toISOString()
+    await kv.set(`notification:${notificationId}`, notification)
+    
+    return c.json({ success: true })
+  } catch (error) {
+    console.error('Error marking notification as read:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// Mark all notifications as read
+app.put('/make-server-a07d0a8e/notifications/read-all', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const userNotificationsKey = `notifications:user:${user.id}`
+    const notificationIds = await kv.get(userNotificationsKey) || []
+    
+    for (const notifId of notificationIds) {
+      const notification = await kv.get(`notification:${notifId}`)
+      if (notification && !notification.read) {
+        notification.read = true
+        notification.readAt = new Date().toISOString()
+        await kv.set(`notification:${notifId}`, notification)
+      }
+    }
+    
+    return c.json({ success: true })
+  } catch (error) {
+    console.error('Error marking all notifications as read:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// ===== INVITATIONS ROUTES =====
+
+// Get pending invitations for user
+app.get('/make-server-a07d0a8e/invitations/pending', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    
+    if (error || !user) {
+      console.log('Unauthorized access to /invitations/pending - no valid token')
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    console.log(`📨 Loading invitations for user: ${user.id}`)
+    
+    // Get all invitations
+    const allInvitations = await kv.getByPrefix('invitation:')
+    
+    // Filter for this user and pending status
+    const userInvitations = allInvitations.filter((inv: any) => 
+      inv.toUserId === user.id && inv.status === 'pending'
+    )
+    
+    console.log(`✅ Found ${userInvitations.length} pending invitations`)
+    
+    return c.json({ invitations: userInvitations })
+  } catch (error) {
+    console.error('Error loading invitations:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// Accept invitation
+app.post('/make-server-a07d0a8e/invitations/:invitationId/accept', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const invitationId = c.req.param('invitationId')
+    const invitation = await kv.get(`invitation:${invitationId}`)
+    
+    if (!invitation) {
+      return c.json({ error: 'Invitation not found' }, 404)
+    }
+    
+    if (invitation.toUserId !== user.id) {
+      return c.json({ error: 'Unauthorized' }, 403)
+    }
+    
+    if (invitation.status !== 'pending') {
+      return c.json({ error: 'Invitation already processed' }, 400)
+    }
+    
+    // Update invitation status
+    invitation.status = 'accepted'
+    invitation.acceptedAt = new Date().toISOString()
+    await kv.set(`invitation:${invitationId}`, invitation)
+    
+    // Handle different invitation types
+    if (invitation.type === 'coparent_invite') {
+      // Add to child's co-parents list
+      const coParentsKey = `coparents:child:${invitation.childId}`
+      const existingCoParents = await kv.get(coParentsKey) || []
+      
+      if (!existingCoParents.includes(user.id)) {
+        await kv.set(coParentsKey, [...existingCoParents, user.id])
+      }
+      
+      // Add child to user's children list
+      const childrenKey = `children:parent:${user.id}`
+      const existingChildren = await kv.get(childrenKey) || []
+      
+      if (!existingChildren.includes(invitation.childId)) {
+        await kv.set(childrenKey, [...existingChildren, invitation.childId])
+      }
+      
+      // Notify the parent
+      await createNotification(
+        invitation.fromUserId,
+        'coparent_accepted',
+        'Co-responsável aceitou convite',
+        `${user.user_metadata?.name || user.email} aceitou ser co-responsável de ${invitation.childName}`,
+        invitation.childId
+      )
+    }
+    
+    return c.json({ success: true, message: 'Invitation accepted successfully' })
+  } catch (error) {
+    console.error('Error accepting invitation:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// Reject invitation
+app.post('/make-server-a07d0a8e/invitations/:invitationId/reject', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const invitationId = c.req.param('invitationId')
+    const invitation = await kv.get(`invitation:${invitationId}`)
+    
+    if (!invitation) {
+      return c.json({ error: 'Invitation not found' }, 404)
+    }
+    
+    if (invitation.toUserId !== user.id) {
+      return c.json({ error: 'Unauthorized' }, 403)
+    }
+    
+    if (invitation.status !== 'pending') {
+      return c.json({ error: 'Invitation already processed' }, 400)
+    }
+    
+    // Update invitation status
+    invitation.status = 'rejected'
+    invitation.rejectedAt = new Date().toISOString()
+    await kv.set(`invitation:${invitationId}`, invitation)
+    
+    // Notify the sender
+    await createNotification(
+      invitation.fromUserId,
+      'invitation_rejected',
+      'Convite recusado',
+      `${user.user_metadata?.name || user.email} recusou o convite para ${invitation.childName}`,
+      invitation.childId
+    )
+    
+    return c.json({ success: true, message: 'Invitation rejected successfully' })
+  } catch (error) {
+    console.error('Error rejecting invitation:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// ===== LGPD COMPLIANCE ROUTES =====
+
+// Privacy Policy and Terms storage
+app.get('/make-server-a07d0a8e/lgpd/privacy-policy', async (c) => {
+  try {
+    const policy = await kv.get('lgpd:privacy_policy') || {
+      content: 'Política de Privacidade padrão do Autazul',
+      lastUpdated: new Date().toISOString()
+    }
+    return c.json({ policy })
+  } catch (error) {
+    console.error('Error fetching privacy policy:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+app.get('/make-server-a07d0a8e/lgpd/terms', async (c) => {
+  try {
+    const terms = await kv.get('lgpd:terms') || {
+      content: 'Termos de Uso padrão do Autazul',
+      lastUpdated: new Date().toISOString()
+    }
+    return c.json({ terms })
+  } catch (error) {
+    console.error('Error fetching terms:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// Admin: Update privacy policy
+app.put('/make-server-a07d0a8e/admin/lgpd/privacy-policy', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    if (!isAdmin(user.email || '')) {
+      return c.json({ error: 'Forbidden - Admin access required' }, 403)
+    }
+
+    const { content } = await c.req.json()
+    const policy = {
+      content,
+      lastUpdated: new Date().toISOString(),
+      updatedBy: user.email
+    }
+
+    await kv.set('lgpd:privacy_policy', policy)
+
+    // Notify all users about the update
+    const allUsers = await kv.getByPrefix('user:')
+    
+    for (const userItem of allUsers) {
+      if (userItem.email) {
+        try {
+          await sendEmail(
+            userItem.email,
+            'Atualização da Política de Privacidade - Autazul',
+            `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+    .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>📋 Atualização de Política de Privacidade</h1>
+    </div>
+    <div class="content">
+      <p>Olá, ${userItem.name}!</p>
+      <p>Informamos que a Política de Privacidade do Autazul foi atualizada em ${new Date().toLocaleDateString('pt-BR')}.</p>
+      <p>Acesse o sistema para visualizar as alterações.</p>
+      <p style="margin-top: 30px; color: #666; font-size: 12px;">
+        Atenciosamente,<br>Equipe Autazul
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+            `
+          )
+        } catch (emailError) {
+          console.error(`Failed to send email to ${userItem.email}:`, emailError)
+        }
+      }
+      
+      // Create notification
+      await createNotification(
+        userItem.id,
+        'privacy_policy_update',
+        'Política de Privacidade Atualizada',
+        'A Política de Privacidade foi atualizada. Acesse o sistema para visualizar as alterações.'
+      )
+    }
+
+    return c.json({ success: true, policy })
+  } catch (error) {
+    console.error('Error updating privacy policy:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// Admin: Update terms
+app.put('/make-server-a07d0a8e/admin/lgpd/terms', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    if (!isAdmin(user.email || '')) {
+      return c.json({ error: 'Forbidden - Admin access required' }, 403)
+    }
+
+    const { content } = await c.req.json()
+    const terms = {
+      content,
+      lastUpdated: new Date().toISOString(),
+      updatedBy: user.email
+    }
+
+    await kv.set('lgpd:terms', terms)
+
+    // Notify all users about the update
+    const allUsers = await kv.getByPrefix('user:')
+    
+    for (const userItem of allUsers) {
+      if (userItem.email) {
+        try {
+          await sendEmail(
+            userItem.email,
+            'Atualização dos Termos de Uso - Autazul',
+            `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+    .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>📋 Atualização de Termos de Uso</h1>
+    </div>
+    <div class="content">
+      <p>Olá, ${userItem.name}!</p>
+      <p>Informamos que os Termos de Uso do Autazul foram atualizados em ${new Date().toLocaleDateString('pt-BR')}.</p>
+      <p>Acesse o sistema para visualizar as alterações.</p>
+      <p style="margin-top: 30px; color: #666; font-size: 12px;">
+        Atenciosamente,<br>Equipe Autazul
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+            `
+          )
+        } catch (emailError) {
+          console.error(`Failed to send email to ${userItem.email}:`, emailError)
+        }
+      }
+      
+      // Create notification
+      await createNotification(
+        userItem.id,
+        'terms_update',
+        'Termos de Uso Atualizados',
+        'Os Termos de Uso foram atualizados. Acesse o sistema para visualizar as alterações.'
+      )
+    }
+
+    return c.json({ success: true, terms })
+  } catch (error) {
+    console.error('Error updating terms:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// User: Update consent
+app.put('/make-server-a07d0a8e/user/consent', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const { consent } = await c.req.json()
+    const userData = await kv.get(`user:${user.id}`)
+    
+    const updatedUser = {
+      ...userData,
+      consent,
+      consentUpdatedAt: new Date().toISOString()
+    }
+
+    await kv.set(`user:${user.id}`, updatedUser)
+
+    return c.json({ success: true, user: updatedUser })
+  } catch (error) {
+    console.error('Error updating consent:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// User: Request data export (portability)
+app.post('/make-server-a07d0a8e/user/export-data', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const userData = await kv.get(`user:${user.id}`)
+    
+    // Get all user data
+    const children = []
+    const childrenIds = await kv.get(`children:parent:${user.id}`) || []
+    for (const childId of childrenIds) {
+      const child = await kv.get(`child:${childId}`)
+      if (child) children.push(child)
+    }
+
+    const events = []
+    const eventIds = await kv.get(`events:parent:${user.id}`) || []
+    for (const eventId of eventIds) {
+      const event = await kv.get(`event:${eventId}`)
+      if (event) events.push(event)
+    }
+
+    const notifications = []
+    const notificationIds = await kv.get(`notifications:user:${user.id}`) || []
+    for (const notificationId of notificationIds) {
+      const notification = await kv.get(`notification:${notificationId}`)
+      if (notification) notifications.push(notification)
+    }
+
+    const exportData = {
+      user: userData,
+      children,
+      events,
+      notifications,
+      exportedAt: new Date().toISOString()
+    }
+
+    return c.json({ success: true, data: exportData })
+  } catch (error) {
+    console.error('Error exporting user data:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// User: Request account deletion
+app.post('/make-server-a07d0a8e/user/request-deletion', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const { reason } = await c.req.json()
+    const userData = await kv.get(`user:${user.id}`)
+
+    // Create deletion request
+    const requestId = generateId()
+    const deletionRequest = {
+      id: requestId,
+      userId: user.id,
+      userEmail: user.email,
+      userName: userData?.name,
+      reason,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    }
+
+    await kv.set(`deletion_request:${requestId}`, deletionRequest)
+
+    // Notify admins
+    const allUsers = await kv.getByPrefix('user:')
+    for (const adminUser of allUsers) {
+      if (isAdmin(adminUser.email)) {
+        await createNotification(
+          adminUser.id,
+          'deletion_request',
+          'Solicitação de Exclusão de Conta',
+          `${userData?.name || user.email} solicitou a exclusão da conta. Motivo: ${reason || 'Não informado'}`,
+          requestId
+        )
+      }
+    }
+
+    return c.json({ success: true, message: 'Solicitação de exclusão enviada. Você receberá uma confirmação em breve.' })
+  } catch (error) {
+    console.error('Error requesting deletion:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// User: Request data opposition (object to processing)
+app.post('/make-server-a07d0a8e/user/request-opposition', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const { dataType, reason } = await c.req.json()
+    const userData = await kv.get(`user:${user.id}`)
+
+    // Create opposition request
+    const requestId = generateId()
+    const oppositionRequest = {
+      id: requestId,
+      userId: user.id,
+      userEmail: user.email,
+      userName: userData?.name,
+      dataType,
+      reason,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    }
+
+    await kv.set(`opposition_request:${requestId}`, oppositionRequest)
+
+    // Notify admins
+    const allUsers = await kv.getByPrefix('user:')
+    for (const adminUser of allUsers) {
+      if (isAdmin(adminUser.email)) {
+        await createNotification(
+          adminUser.id,
+          'opposition_request',
+          'Solicitação de Oposição ao Tratamento de Dados',
+          `${userData?.name || user.email} solicitou oposição ao tratamento de dados: ${dataType}. Motivo: ${reason || 'Não informado'}`,
+          requestId
+        )
+      }
+    }
+
+    return c.json({ success: true, message: 'Solicitação enviada. Os administradores irão analisá-la.' })
+  } catch (error) {
+    console.error('Error requesting opposition:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// Admin: Get all deletion requests
+app.get('/make-server-a07d0a8e/admin/deletion-requests', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    if (!isAdmin(user.email || '')) {
+      return c.json({ error: 'Forbidden - Admin access required' }, 403)
+    }
+
+    const requests = await kv.getByPrefix('deletion_request:')
+    requests.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+
+    return c.json({ requests })
+  } catch (error) {
+    console.error('Error fetching deletion requests:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// Admin: Get all opposition requests
+app.get('/make-server-a07d0a8e/admin/opposition-requests', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    if (!isAdmin(user.email || '')) {
+      return c.json({ error: 'Forbidden - Admin access required' }, 403)
+    }
+
+    const requests = await kv.getByPrefix('opposition_request:')
+    requests.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+
+    return c.json({ requests })
+  } catch (error) {
+    console.error('Error fetching opposition requests:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// Admin: Process deletion request (approve)
+app.post('/make-server-a07d0a8e/admin/deletion-requests/:requestId/approve', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    if (!isAdmin(user.email || '')) {
+      return c.json({ error: 'Forbidden - Admin access required' }, 403)
+    }
+
+    const requestId = c.req.param('requestId')
+    const deletionRequest = await kv.get(`deletion_request:${requestId}`)
+    
+    if (!deletionRequest) {
+      return c.json({ error: 'Request not found' }, 404)
+    }
+
+    const targetUserId = deletionRequest.userId
+
+    // Delete user data cascade
+    const userData = await kv.get(`user:${targetUserId}`)
+    
+    // Delete children and related data
+    const childrenIds = await kv.get(`children:parent:${targetUserId}`) || []
+    for (const childId of childrenIds) {
+      // Delete child events
+      const eventIds = await kv.get(`events:child:${childId}`) || []
+      for (const eventId of eventIds) {
+        await kv.del(`event:${eventId}`)
+      }
+      await kv.del(`events:child:${childId}`)
+      
+      // Delete professional connections
+      const connections = await kv.get(`connections:child:${childId}`) || []
+      for (const profId of connections) {
+        await kv.del(`connection:${childId}:${profId}`)
+      }
+      await kv.del(`connections:child:${childId}`)
+      
+      // Delete child
+      await kv.del(`child:${childId}`)
+    }
+    await kv.del(`children:parent:${targetUserId}`)
+    
+    // Delete user events
+    const userEventIds = await kv.get(`events:parent:${targetUserId}`) || []
+    for (const eventId of userEventIds) {
+      await kv.del(`event:${eventId}`)
+    }
+    await kv.del(`events:parent:${targetUserId}`)
+    
+    // Delete notifications
+    const notificationIds = await kv.get(`notifications:user:${targetUserId}`) || []
+    for (const notificationId of notificationIds) {
+      await kv.del(`notification:${notificationId}`)
+    }
+    await kv.del(`notifications:user:${targetUserId}`)
+    
+    // Delete user
+    await kv.del(`user:${targetUserId}`)
+    
+    // Delete from Supabase Auth
+    await supabase.auth.admin.deleteUser(targetUserId)
+    
+    // Update deletion request
+    deletionRequest.status = 'approved'
+    deletionRequest.processedAt = new Date().toISOString()
+    deletionRequest.processedBy = user.email
+    await kv.set(`deletion_request:${requestId}`, deletionRequest)
+
+    return c.json({ success: true, message: 'Conta e dados excluídos com sucesso' })
+  } catch (error) {
+    console.error('Error approving deletion request:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// Admin: Audit logs
+app.get('/make-server-a07d0a8e/admin/audit-logs', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    if (!isAdmin(user.email || '')) {
+      return c.json({ error: 'Forbidden - Admin access required' }, 403)
+    }
+
+    const logs = await kv.get('audit_logs') || []
+    
+    // Return last 1000 logs
+    const recentLogs = logs.slice(-1000).reverse()
+
+    return c.json({ logs: recentLogs })
+  } catch (error) {
+    console.error('Error fetching audit logs:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// Helper: Create audit log
+async function createAuditLog(userId: string, action: string, details: any) {
+  const log = {
+    id: generateId(),
+    userId,
+    action,
+    details,
+    timestamp: new Date().toISOString()
+  }
+  
+  const logs = await kv.get('audit_logs') || []
+  logs.push(log)
+  
+  // Keep only last 10000 logs
+  if (logs.length > 10000) {
+    logs.splice(0, logs.length - 10000)
+  }
+  
+  await kv.set('audit_logs', logs)
+}
+
+// Admin: System backup
+app.get('/make-server-a07d0a8e/admin/backup', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    if (!isAdmin(user.email || '')) {
+      return c.json({ error: 'Forbidden - Admin access required' }, 403)
+    }
+
+    // Get all data from KV store
+    const users = await kv.getByPrefix('user:')
+    const children = await kv.getByPrefix('child:')
+    const events = await kv.getByPrefix('event:')
+    const notifications = await kv.getByPrefix('notification:')
+    const settings = await kv.get('admin:settings')
+    const privacyPolicy = await kv.get('lgpd:privacy_policy')
+    const terms = await kv.get('lgpd:terms')
+    const auditLogs = await kv.get('audit_logs')
+
+    const backup = {
+      version: '1.0',
+      exportedAt: new Date().toISOString(),
+      exportedBy: user.email,
+      data: {
+        users,
+        children,
+        events,
+        notifications,
+        settings,
+        privacyPolicy,
+        terms,
+        auditLogs
+      }
+    }
+
+    await createAuditLog(user.id, 'system_backup', { timestamp: new Date().toISOString() })
+
+    return c.json({ success: true, backup })
+  } catch (error) {
+    console.error('Error creating backup:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// Admin: System health monitoring
+app.get('/make-server-a07d0a8e/admin/system-health', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    if (!isAdmin(user.email || '')) {
+      return c.json({ error: 'Forbidden - Admin access required' }, 403)
+    }
+
+    // Count entities
+    const users = await kv.getByPrefix('user:')
+    const children = await kv.getByPrefix('child:')
+    const events = await kv.getByPrefix('event:')
+    const notifications = await kv.getByPrefix('notification:')
+    
+    const health = {
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      database: {
+        connected: true,
+        counts: {
+          users: users.length,
+          children: children.length,
+          events: events.length,
+          notifications: notifications.length
+        }
+      },
+      server: {
+        uptime: Deno.memoryUsage(),
+        environment: Deno.env.get('DENO_DEPLOYMENT_ID') ? 'production' : 'development'
+      }
+    }
+
+    return c.json({ health })
+  } catch (error) {
+    console.error('Error fetching system health:', error)
+    return c.json({ 
+      health: {
+        status: 'unhealthy',
+        error: String(error),
+        timestamp: new Date().toISOString()
+      }
+    }, 500)
+  }
+})
+
+// Admin: Manage admins
+app.post('/make-server-a07d0a8e/admin/manage-admin', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    if (!isAdmin(user.email || '')) {
+      return c.json({ error: 'Forbidden - Admin access required' }, 403)
+    }
+
+    const { email, action } = await c.req.json() // action: 'add' or 'remove'
+    
+    const adminList = await kv.get('admin_list') || []
+    
+    if (action === 'add') {
+      if (!adminList.includes(email.toLowerCase())) {
+        adminList.push(email.toLowerCase())
+      }
+    } else if (action === 'remove') {
+      const index = adminList.indexOf(email.toLowerCase())
+      if (index > -1) {
+        adminList.splice(index, 1)
+      }
+    }
+    
+    await kv.set('admin_list', adminList)
+    
+    await createAuditLog(user.id, 'admin_management', { 
+      action, 
+      targetEmail: email,
+      timestamp: new Date().toISOString() 
+    })
+
+    return c.json({ success: true, adminList })
+  } catch (error) {
+    console.error('Error managing admin:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// Admin: Get admin list
+app.get('/make-server-a07d0a8e/admin/admin-list', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    if (!isAdmin(user.email || '')) {
+      return c.json({ error: 'Forbidden - Admin access required' }, 403)
+    }
+
+    const adminList = await kv.get('admin_list') || []
+    
+    // Include environment variable admins
+    const envAdmins = ADMIN_EMAILS
+    const allAdmins = [...new Set([...adminList, ...envAdmins])]
+
+    return c.json({ admins: allAdmins })
+  } catch (error) {
+    console.error('Error fetching admin list:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// Admin: Generate data sharing report for user
+app.get('/make-server-a07d0a8e/admin/data-sharing-report/:userId', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    if (!isAdmin(user.email || '')) {
+      return c.json({ error: 'Forbidden - Admin access required' }, 403)
+    }
+
+    const targetUserId = c.req.param('userId')
+    const userData = await kv.get(`user:${targetUserId}`)
+    
+    if (!userData) {
+      return c.json({ error: 'User not found' }, 404)
+    }
+
+    // Get all children and their connections
+    const childrenIds = await kv.get(`children:parent:${targetUserId}`) || []
+    const sharingReport = []
+    
+    for (const childId of childrenIds) {
+      const child = await kv.get(`child:${childId}`)
+      const connections = await kv.get(`connections:child:${childId}`) || []
+      const coParents = await kv.get(`coparents:child:${childId}`) || []
+      
+      const professionalNames = []
+      for (const profId of connections) {
+        const prof = await kv.get(`user:${profId}`)
+        if (prof) professionalNames.push(prof.name || prof.email)
+      }
+      
+      const coParentNames = []
+      for (const coParentId of coParents) {
+        const coParent = await kv.get(`user:${coParentId}`)
+        if (coParent) coParentNames.push(coParent.name || coParent.email)
+      }
+      
+      sharingReport.push({
+        childName: child?.name,
+        childId,
+        sharedWith: {
+          professionals: professionalNames,
+          coParents: coParentNames
+        }
+      })
+    }
+
+    const report = {
+      user: {
+        name: userData.name,
+        email: userData.email,
+        id: targetUserId
+      },
+      sharingReport,
+      generatedAt: new Date().toISOString(),
+      generatedBy: user.email
+    }
+
+    await createAuditLog(user.id, 'data_sharing_report', { 
+      targetUserId,
+      timestamp: new Date().toISOString() 
+    })
+
+    return c.json({ report })
+  } catch (error) {
+    console.error('Error generating data sharing report:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+Deno.serve(app.fetch)
+# Política de Privacidade - Autazul
+
+Última atualização: ${new Date().toLocaleDateString('pt-BR')}
+
+## 1. Introdução
+
+A Autazul é comprometida em proteger a privacidade dos usuários. Esta política de privacidade descreve como coletamos, usamos, compartilhamos e protegemos suas informações pessoais quando você usa nossos serviços.
+
+## 2. Coleta de Informações
+
+Coletamos as seguintes informações pessoais:
+- Nome completo
+- Endereço de e-mail
+- Senha (armazenada com criptografia)
+- Informações sobre crianças (nome, data de nascimento, foto, escola)
+- Eventos e acompanhamentos registrados
+
+## 3. Uso de Informações
+
+Usamos suas informações para:
+- Fornecer e melhorar nossos serviços
+- Facilitar o acompanhamento do desenvolvimento de crianças autistas
+- Comunicação entre pais e profissionais
+- Cumprir com obrigações legais
+
+## 4. Compartilhamento de Informações
+
+Não compartilhamos suas informações pessoais com terceiros, exceto:
+- Com profissionais convidados por você
+- Com co-responsáveis autorizados
+- Quando exigido por lei
+
+## 5. Proteção de Dados de Menores
+
+Implementamos medidas especiais de proteção para dados de crianças:
+- Criptografia em trânsito e em repouso
+- Controle de acesso granular
+- Auditoria de todos os acessos
+- Apenas responsáveis legais podem cadastrar crianças
+
+## 6. Seus Direitos (LGPD)
+
+Você tem direito a:
+- Confirmar a existência de tratamento
+- Acessar seus dados
+- Corrigir dados incompletos ou incorretos
+- Solicitar a eliminação de dados
+- Portabilidade dos dados
+- Revogar consentimento
+- Opor-se ao tratamento
+
+## 7. Segurança
+
+Implementamos medidas de segurança técnicas e organizacionais para proteger seus dados contra acesso não autorizado, perda, alteração ou divulgação.
+
+## 8. Retenção de Dados
+
+Mantemos seus dados pelo tempo necessário para fornecer os serviços ou conforme exigido por lei.
+
+## 9. Contato
+
+Para exercer seus direitos ou esclarecer dúvidas sobre privacidade:
+Email: privacidade@autazul.com
+
+## 10. Alterações
+
+Esta política pode ser atualizada periodicamente. Notificaremos sobre mudanças significativas.
+`
+
+const DEFAULT_TERMS = `
+# Termos de Serviço - Autazul
+
+Última atualização: ${new Date().toLocaleDateString('pt-BR')}
+
+## 1. Aceitação dos Termos
+
+Ao usar o Autazul, você concorda com estes termos de serviço.
+
+## 2. Descrição do Serviço
+
+O Autazul é uma plataforma para pais e responsáveis acompanharem o desenvolvimento de crianças autistas com a colaboração de profissionais.
+
+## 3. Cadastro e Conta
+
+- Você deve fornecer informações verdadeiras e precisas
+- É responsável pela segurança de sua senha
+- Não pode compartilhar sua conta com terceiros
+- Deve ter 18 anos ou mais para criar uma conta
+
+## 4. Uso Aceitável
+
+Você concorda em:
+- Usar o serviço apenas para fins legítimos
+- Não postar conteúdo ofensivo, ilegal ou prejudicial
+- Respeitar a privacidade de outros usuários
+- Não tentar acessar áreas restritas do sistema
+
+## 5. Conteúdo do Usuário
+
+- Você é responsável por todo conteúdo que posta
+- Não publicamos ou compartilhamos seu conteúdo sem permissão
+- Você mantém a propriedade de seu conteúdo
+
+## 6. Privacidade
+
+Nossa política de privacidade descreve como coletamos, usamos e protegemos suas informações pessoais.
+
+## 7. Propriedade Intelectual
+
+Todos os direitos de propriedade intelectual do Autazul pertencem aos seus criadores. Você não pode copiar, modificar ou distribuir nosso software sem autorização.
+
+## 8. Limitação de Responsabilidade
+
+O Autazul não é responsável por:
+- Perda de dados devido a falhas técnicas
+- Decisões tomadas com base nas informações do sistema
+- Danos indiretos ou consequenciais
+
+## 9. Modificações do Serviço
+
+Podemos modificar ou descontinuar o serviço a qualquer momento, com ou sem aviso prévio.
+
+## 10. Rescisão
+
+Podemos encerrar sua conta se você violar estes termos. Você pode encerrar sua conta a qualquer momento solicitando a exclusão.
+
+## 11. Lei Aplicável
+
+Estes termos são regidos pelas leis brasileiras, incluindo a LGPD (Lei Geral de Proteção de Dados).
+
+## 12. Contato
+
+Para questões sobre estes termos:
+Email: suporte@autazul.com
+
+## 13. Alterações
+
+Podemos atualizar estes termos. Alterações significativas serão notificadas aos usuários.
+`
+
+// LGPD: Get privacy policy
+app.get('/make-server-a07d0a8e/lgpd/privacy-policy', async (c) => {
+  try {
+    const privacyPolicy = await kv.get('lgpd:privacy_policy') || DEFAULT_PRIVACY_POLICY
+    return c.json({ privacyPolicy })
+  } catch (error) {
+    console.error('Error fetching privacy policy:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// LGPD: Get terms
+app.get('/make-server-a07d0a8e/lgpd/terms', async (c) => {
+  try {
+    const terms = await kv.get('lgpd:terms') || DEFAULT_TERMS
+    return c.json({ terms })
+  } catch (error) {
+    console.error('Error fetching terms:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// Admin: Update privacy policy
+app.put('/make-server-a07d0a8e/admin/privacy-policy', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    if (!isAdmin(user.email || '')) {
+      return c.json({ error: 'Forbidden - Admin access required' }, 403)
+    }
+
+    const { content } = await c.req.json()
+    
+    await kv.set('lgpd:privacy_policy', content)
+    
+    await createAuditLog(user.id, 'update_privacy_policy', { 
+      timestamp: new Date().toISOString() 
+    })
+
+    return c.json({ success: true })
+  } catch (error) {
+    console.error('Error updating privacy policy:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// Admin: Update terms
+app.put('/make-server-a07d0a8e/admin/terms', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    if (!isAdmin(user.email || '')) {
+      return c.json({ error: 'Forbidden - Admin access required' }, 403)
+    }
+
+    const { content } = await c.req.json()
+    
+    await kv.set('lgpd:terms', content)
+    
+    await createAuditLog(user.id, 'update_terms', { 
+      timestamp: new Date().toISOString() 
+    })
+
+    return c.json({ success: true })
+  } catch (error) {
+    console.error('Error updating terms:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
 
 Deno.serve(app.fetch)

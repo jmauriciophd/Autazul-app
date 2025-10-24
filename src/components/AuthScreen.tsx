@@ -7,6 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { RadioGroup, RadioGroupItem } from './ui/radio-group'
 import { Users, Stethoscope } from 'lucide-react'
 import { autazulLogo, loginBackground } from '../assets/logo'
+import { Checkbox } from './ui/checkbox'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog'
+import { ScrollArea } from './ui/scroll-area'
 
 export function AuthScreen() {
   const { signIn, signUp } = useAuth()
@@ -19,6 +22,9 @@ export function AuthScreen() {
   const [loading, setLoading] = useState(false)
   const [hasChildren, setHasChildren] = useState(false)
   const [checkingProfile, setCheckingProfile] = useState(false)
+  const [consent, setConsent] = useState(false)
+  const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false)
+  const [showTerms, setShowTerms] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -33,6 +39,11 @@ export function AuthScreen() {
       } else {
         if (!name) {
           setError('Por favor, insira seu nome')
+          setLoading(false)
+          return
+        }
+        if (!consent) {
+          setError('Você deve aceitar os termos e a política de privacidade para se cadastrar')
           setLoading(false)
           return
         }
@@ -183,6 +194,39 @@ export function AuthScreen() {
                 style={{ borderColor: '#BDBCBC' }}
               />
             </div>
+            {!isLogin && (
+              <div className="space-y-2">
+                <div className="flex items-start space-x-2">
+                  <Checkbox
+                    id="consent"
+                    checked={consent}
+                    onCheckedChange={(checked) => setConsent(checked as boolean)}
+                    className="mt-1"
+                  />
+                  <Label htmlFor="consent" className="text-sm cursor-pointer" style={{ color: '#373737' }}>
+                    Eu li e aceito os{' '}
+                    <button
+                      type="button"
+                      className="underline"
+                      style={{ color: '#15C3D6' }}
+                      onClick={() => setShowTerms(true)}
+                    >
+                      termos de serviço
+                    </button>
+                    {' '}e a{' '}
+                    <button
+                      type="button"
+                      className="underline"
+                      style={{ color: '#15C3D6' }}
+                      onClick={() => setShowPrivacyPolicy(true)}
+                    >
+                      política de privacidade
+                    </button>
+                    {' '}da Autazul.
+                  </Label>
+                </div>
+              </div>
+            )}
             {error && (
               <div className="text-white text-sm p-3 rounded-lg" style={{ backgroundColor: '#dc2626' }}>
                 {error}
@@ -220,6 +264,66 @@ export function AuthScreen() {
           </form>
         </CardContent>
       </Card>
+
+      {/* Dialogs for Privacy Policy and Terms of Service */}
+      <Dialog open={showPrivacyPolicy} onOpenChange={setShowPrivacyPolicy}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Política de Privacidade</DialogTitle>
+            <DialogDescription>
+              Leia nossa política de privacidade para entender como coletamos e usamos seus dados.
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="mt-4 h-[300px]">
+            <p className="text-sm leading-5">
+              A Autazul é comprometida em proteger a privacidade dos usuários. Esta política de privacidade descreve como coletamos, usamos, compartilhamos e protegemos suas informações pessoais quando você usa nossos serviços.
+            </p>
+            <p className="text-sm leading-5 mt-4">
+              <strong>Coleta de Informações:</strong> Coletamos informações pessoais que você nos fornece, como nome, endereço de e-mail e senha, quando você se cadastra em nossa plataforma.
+            </p>
+            <p className="text-sm leading-5 mt-4">
+              <strong>Uso de Informações:</strong> Usamos suas informações para fornecer e melhorar nossos serviços, para comunicação com você e para cumprir com obrigações legais.
+            </p>
+            <p className="text-sm leading-5 mt-4">
+              <strong>Compartilhamento de Informações:</strong> Não compartilhamos suas informações pessoais com terceiros, a menos que seja necessário para cumprir com obrigações legais ou com o seu consentimento.
+            </p>
+            <p className="text-sm leading-5 mt-4">
+              <strong>Proteção de Informações:</strong> Implementamos medidas de segurança para proteger suas informações pessoais contra acesso não autorizado, uso indevido ou divulgação.
+            </p>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showTerms} onOpenChange={setShowTerms}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Termos de Serviço</DialogTitle>
+            <DialogDescription>
+              Leia nossos termos de serviço para entender os termos e condições para usar nossos serviços.
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="mt-4 h-[300px]">
+            <p className="text-sm leading-5">
+              Bem-vindo(a) aos Termos de Serviço da Autazul. Ao usar nossos serviços, você concorda com estes termos.
+            </p>
+            <p className="text-sm leading-5 mt-4">
+              <strong>Uso dos Serviços:</strong> Você pode usar nossos serviços apenas para fins legítimos e de acordo com estes termos. Você não pode usar nossos serviços para atividades ilegais ou prejudiciais.
+            </p>
+            <p className="text-sm leading-5 mt-4">
+              <strong>Conteúdo do Usuário:</strong> Você é responsável por todo o conteúdo que posta ou compartilha em nossos serviços. Você não pode postar conteúdo que seja ofensivo, ilegal ou que viole os direitos de terceiros.
+            </p>
+            <p className="text-sm leading-5 mt-4">
+              <strong>Privacidade:</strong> Nossa política de privacidade descreve como coletamos, usamos, compartilhamos e protegemos suas informações pessoais. Ao usar nossos serviços, você concorda com nossa política de privacidade.
+            </p>
+            <p className="text-sm leading-5 mt-4">
+              <strong>Propriedade Intelectual:</strong> Todos os direitos de propriedade intelectual relacionados aos nossos serviços pertencem à Autazul. Você não pode usar nossos serviços para criar, distribuir ou comercializar conteúdo que viole nossos direitos de propriedade intelectual.
+            </p>
+            <p className="text-sm leading-5 mt-4">
+              <strong>Limitação de Responsabilidade:</strong> A Autazul não é responsável por quaisquer danos ou perdas resultantes do uso de nossos serviços, a menos que seja devido à negligência grave ou intencional da Autazul.
+            </p>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

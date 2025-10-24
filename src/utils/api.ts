@@ -72,10 +72,10 @@ export class ApiClient {
   }
 
   // Auth
-  async signup(email: string, password: string, name: string, role: 'parent' | 'professional' = 'parent') {
+  async signup(email: string, password: string, name: string, role: 'parent' | 'professional' = 'parent', consent: boolean = true) {
     return this.request<{ success: boolean; userId: string }>('/signup', {
       method: 'POST',
-      body: JSON.stringify({ email, password, name, role }),
+      body: JSON.stringify({ email, password, name, role, consent }),
     })
   }
 
@@ -454,6 +454,90 @@ export class ApiClient {
     return this.request<{ success: boolean; message: string }>('/feedback', {
       method: 'POST',
       body: JSON.stringify({ rating, feedback }),
+    })
+  }
+
+  // LGPD - User Rights
+  async exportUserData() {
+    return this.request<{ success: boolean; data: any }>('/user/export-data', {
+      method: 'POST',
+    })
+  }
+
+  async requestAccountDeletion(reason: string) {
+    return this.request<{ success: boolean; message: string }>('/user/request-deletion', {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    })
+  }
+
+  async requestDataOpposition(dataType: string, reason: string) {
+    return this.request<{ success: boolean; message: string }>('/user/request-opposition', {
+      method: 'POST',
+      body: JSON.stringify({ dataType, reason }),
+    })
+  }
+
+  async updateConsent(consent: boolean) {
+    return this.request<{ success: boolean; user: any }>('/user/update-consent', {
+      method: 'PUT',
+      body: JSON.stringify({ consent }),
+    })
+  }
+
+  async getPrivacyPolicy() {
+    return this.request<{ privacyPolicy: string }>('/lgpd/privacy-policy')
+  }
+
+  async getTerms() {
+    return this.request<{ terms: string }>('/lgpd/terms')
+  }
+
+  // LGPD - Admin
+  async getDeletionRequests() {
+    return this.request<{ requests: any[] }>('/admin/deletion-requests')
+  }
+
+  async getOppositionRequests() {
+    return this.request<{ requests: any[] }>('/admin/opposition-requests')
+  }
+
+  async approveDeletionRequest(requestId: string) {
+    return this.request<{ success: boolean; message: string }>(
+      `/admin/deletion-requests/${requestId}/approve`,
+      {
+        method: 'POST',
+      }
+    )
+  }
+
+  async getAuditLogs() {
+    return this.request<{ logs: any[] }>('/admin/audit-logs')
+  }
+
+  async getSystemBackup() {
+    return this.request<{ success: boolean; backup: any }>('/admin/backup')
+  }
+
+  async getSystemHealth() {
+    return this.request<{ 
+      status: string;
+      timestamp: string;
+      database: any;
+    }>('/admin/system-health')
+  }
+
+  async updatePrivacyPolicy(content: string) {
+    return this.request<{ success: boolean }>('/admin/privacy-policy', {
+      method: 'PUT',
+      body: JSON.stringify({ content }),
+    })
+  }
+
+  async updateTerms(content: string) {
+    return this.request<{ success: boolean }>('/admin/terms', {
+      method: 'PUT',
+      body: JSON.stringify({ content }),
     })
   }
 }
