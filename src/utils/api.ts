@@ -28,7 +28,8 @@ export class ApiClient {
 
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    requiresAuth: boolean = true
   ): Promise<T> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -36,6 +37,12 @@ export class ApiClient {
     }
 
     const token = this.getToken()
+    
+    // For protected endpoints, throw error if no token
+    if (requiresAuth && !token) {
+      throw new Error('Authentication required. Please log in.')
+    }
+    
     if (token) {
       headers['Authorization'] = `Bearer ${token}`
     } else {
@@ -59,7 +66,12 @@ export class ApiClient {
       console.log(`API Response for ${endpoint}:`, { status: response.status, data })
 
       if (!response.ok) {
-        throw new Error(data.error || 'Request failed')
+        // If token is invalid/expired, clear it
+        if (response.status === 401 && token) {
+          console.log('Token expired or invalid, clearing...')
+          this.setToken(null)
+        }
+        throw new Error(data.error || data.message || 'Request failed')
       }
 
       return data
@@ -72,8 +84,8 @@ export class ApiClient {
   }
 
   // Helper method for GET requests
-  async get<T = any>(endpoint: string): Promise<{ data: T }> {
-    const result = await this.request<T>(`/${endpoint}`)
+  async get<T = any>(endpoint: string, requiresAuth: boolean = true): Promise<{ data: T }> {
+    const result = await this.request<T>(`/${endpoint}`, {}, requiresAuth)
     return { data: result }
   }
 
@@ -82,13 +94,13 @@ export class ApiClient {
     return this.request<{ success: boolean; userId: string }>('/signup', {
       method: 'POST',
       body: JSON.stringify({ email, password, name, role, consent }),
-    })
+    }, false)
   }
 
   async getUser() {
     return this.request<{ user: any }>('/get-user', {
       method: 'POST',
-    })
+    }, true)
   }
 
   // Children

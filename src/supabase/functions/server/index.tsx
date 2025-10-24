@@ -184,10 +184,10 @@ app.post('/make-server-a07d0a8e/get-user', async (c) => {
 
     // Check if it's the public anon key (not a session token)
     if (accessToken === Deno.env.get('SUPABASE_ANON_KEY')) {
-      console.log('Received public anon key instead of session token')
+      console.log('Received public anon key instead of session token - user not logged in')
       return c.json({ 
-        error: 'Invalid token',
-        message: 'You must be logged in with a valid session to access user data'
+        error: 'Not authenticated',
+        message: 'Please log in to access this resource'
       }, 401)
     }
 
@@ -195,13 +195,19 @@ app.post('/make-server-a07d0a8e/get-user', async (c) => {
     const { data: { user }, error } = await supabase.auth.getUser(accessToken)
     
     if (error) {
-      console.log('Supabase auth error in get-user:', error)
-      return c.json({ error: 'Invalid token' }, 401)
+      console.log('Supabase auth error in get-user:', error.message)
+      return c.json({ 
+        error: 'Invalid or expired token',
+        message: 'Your session has expired. Please log in again.'
+      }, 401)
     }
     
     if (!user) {
       console.log('No user found for token')
-      return c.json({ error: 'Invalid token' }, 401)
+      return c.json({ 
+        error: 'Invalid token',
+        message: 'User not found. Please log in again.'
+      }, 401)
     }
 
     console.log('User found:', user.id, user.email)
@@ -231,7 +237,10 @@ app.post('/make-server-a07d0a8e/get-user', async (c) => {
     return c.json({ user: fallbackUser })
   } catch (error) {
     console.log('Unexpected error in get-user:', error)
-    return c.json({ error: String(error) }, 500)
+    return c.json({ 
+      error: 'Server error',
+      message: 'An unexpected error occurred. Please try again.'
+    }, 500)
   }
 })
 
@@ -2741,8 +2750,8 @@ function generateChildShareEmailTemplate(parentName: string, fromParentName: str
       </div>
       
       <center>
-        <a href="${Deno.env.get('SUPABASE_URL') || 'http://localhost:3000'}" class="cta-button">
-          ✅ Acessar Autazul
+        <a href="https://ibdzxuctzlixghnfbhjl.supabase.co" class="cta-button">
+          ✅ Aceitar Convite
         </a>
       </center>
       
@@ -2903,8 +2912,8 @@ function generateCoParentInviteEmailTemplate(coParentName: string, parentName: s
       </p>
       
       <center>
-        <a href="${Deno.env.get('SUPABASE_URL') || 'http://localhost:3000'}" class="cta-button">
-          ✅ Acessar Autazul
+        <a href="https://ibdzxuctzlixghnfbhjl.supabase.co" class="cta-button">
+          ✅ Aceitar Convite
         </a>
       </center>
       
@@ -3072,8 +3081,8 @@ function generateInviteEmailTemplate(professionalName: string, parentName: strin
       </p>
       
       <center>
-        <a href="${Deno.env.get('SUPABASE_URL') || 'http://localhost:3000'}" class="cta-button">
-          ✅ Acessar Autazul
+        <a href="https://ibdzxuctzlixghnfbhjl.supabase.co" class="cta-button">
+          ✅ Aceitar Convite
         </a>
       </center>
       

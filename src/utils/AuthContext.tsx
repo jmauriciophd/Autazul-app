@@ -46,8 +46,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return
       }
       
-      if (session) {
+      if (session?.access_token) {
         console.log('Session found, fetching user data...')
+        
+        // Validate the session is still valid
+        const { data: { user: sessionUser }, error: userError } = await supabase.auth.getUser(session.access_token)
+        
+        if (userError || !sessionUser) {
+          console.error('Session token is invalid or expired:', userError)
+          // Clear invalid session
+          await supabase.auth.signOut()
+          api.setToken(null)
+          setLoading(false)
+          return
+        }
+        
         api.setToken(session.access_token)
         try {
           const { user: userData } = await api.getUser()
@@ -69,14 +82,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
           
           setUser(userWithProfile)
-        } catch (userError) {
+        } catch (userError: any) {
           console.error('Error fetching user data:', userError)
-          // If getting user fails, clear the session
-          await supabase.auth.signOut()
-          api.setToken(null)
+          
+          // Check if it's an authentication error
+          if (userError.message?.includes('Authentication required') || 
+              userError.message?.includes('Invalid') || 
+              userError.message?.includes('expired')) {
+            console.log('Session is invalid or expired, signing out...')
+            // If getting user fails due to auth, clear the session
+            await supabase.auth.signOut()
+            api.setToken(null)
+          } else {
+            // For other errors, try to continue with session but log the error
+            console.error('Non-auth error when fetching user data:', userError)
+          }
         }
       } else {
-        console.log('No session found')
+        console.log('No valid session found')
+        api.setToken(null)
       }
     } catch (error) {
       console.error('Error checking user session:', error)
