@@ -370,12 +370,13 @@ export function ProfessionalDashboard() {
                               <SelectValue placeholder="Selecione o tipo" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="Comportamental">Comportamental</SelectItem>
-                              <SelectItem value="Acadêmico">Acadêmico</SelectItem>
-                              <SelectItem value="Social">Social</SelectItem>
-                              <SelectItem value="Sensorial">Sensorial</SelectItem>
-                              <SelectItem value="Comunicação">Comunicação</SelectItem>
-                              <SelectItem value="Saúde">Saúde</SelectItem>
+                              <SelectItem value="Crise">Crise</SelectItem>
+                              <SelectItem value="Birra">Birra</SelectItem>
+                              <SelectItem value="Agressividade">Agressividade</SelectItem>
+                              <SelectItem value="Comportamento Repetitivo">Comportamento Repetitivo</SelectItem>
+                              <SelectItem value="Dificuldade de Comunicação">Dificuldade de Comunicação</SelectItem>
+                              <SelectItem value="Interação Social Positiva">Interação Social Positiva</SelectItem>
+                              <SelectItem value="Progresso">Progresso</SelectItem>
                               <SelectItem value="Outro">Outro</SelectItem>
                             </SelectContent>
                           </Select>
@@ -406,15 +407,16 @@ export function ProfessionalDashboard() {
                         </div>
 
                         <div className="space-y-2">
-                          <Label htmlFor="eventSeverity">Gravidade do Evento *</Label>
+                          <Label htmlFor="eventSeverity">Intensidade *</Label>
                           <Select value={eventSeverity} onValueChange={setEventSeverity} required>
                             <SelectTrigger>
-                              <SelectValue placeholder="Selecione a gravidade" />
+                              <SelectValue placeholder="Selecione a intensidade" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="Baixa">Baixa</SelectItem>
-                              <SelectItem value="Média">Média</SelectItem>
-                              <SelectItem value="Alta">Alta</SelectItem>
+                              <SelectItem value="Normal">Normal</SelectItem>
+                              <SelectItem value="Médio">Médio</SelectItem>
+                              <SelectItem value="Alerta">Alerta</SelectItem>
+                              <SelectItem value="Grave">Grave</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -483,33 +485,33 @@ export function ProfessionalDashboard() {
                     <Card className="bg-green-50 border-green-200">
                       <CardContent className="p-4 text-center">
                         <div className="w-8 h-8 mx-auto mb-2 bg-green-600 rounded-full flex items-center justify-center text-white">
-                          ↓
+                          ✓
                         </div>
-                        <p className="text-sm text-muted-foreground">Baixa</p>
+                        <p className="text-sm text-muted-foreground">Normal</p>
                         <p className="text-2xl">
-                          {events.filter(e => e.severity === 'Baixa').length}
+                          {events.filter(e => e.severity === 'Normal' || e.severity === 'Baixa').length}
                         </p>
                       </CardContent>
                     </Card>
                     <Card className="bg-yellow-50 border-yellow-200">
                       <CardContent className="p-4 text-center">
                         <div className="w-8 h-8 mx-auto mb-2 bg-yellow-600 rounded-full flex items-center justify-center text-white">
-                          ~
+                          !
                         </div>
-                        <p className="text-sm text-muted-foreground">Média</p>
+                        <p className="text-sm text-muted-foreground">Alerta</p>
                         <p className="text-2xl">
-                          {events.filter(e => e.severity === 'Média').length}
+                          {events.filter(e => e.severity === 'Alerta' || e.severity === 'Médio' || e.severity === 'Média').length}
                         </p>
                       </CardContent>
                     </Card>
                     <Card className="bg-red-50 border-red-200">
                       <CardContent className="p-4 text-center">
                         <div className="w-8 h-8 mx-auto mb-2 bg-red-600 rounded-full flex items-center justify-center text-white">
-                          ↑
+                          ⚠
                         </div>
-                        <p className="text-sm text-muted-foreground">Alta</p>
+                        <p className="text-sm text-muted-foreground">Grave</p>
                         <p className="text-2xl">
-                          {events.filter(e => e.severity === 'Alta').length}
+                          {events.filter(e => e.severity === 'Grave' || e.severity === 'Alta').length}
                         </p>
                       </CardContent>
                     </Card>

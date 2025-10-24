@@ -804,15 +804,13 @@ export function ParentDashboard() {
                                   <SelectValue placeholder="Selecione o tipo" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="Comportamental">Comportamental</SelectItem>
-                                  <SelectItem value="Acadêmico">Acadêmico</SelectItem>
-                                  <SelectItem value="Social">Social</SelectItem>
-                                  <SelectItem value="Sensorial">Sensorial</SelectItem>
-                                  <SelectItem value="Comunicação">Comunicação</SelectItem>
-                                  <SelectItem value="Saúde">Saúde</SelectItem>
-                                  <SelectItem value="Alimentação">Alimentação</SelectItem>
-                                  <SelectItem value="Sono">Sono</SelectItem>
-                                  <SelectItem value="Higiene">Higiene</SelectItem>
+                                  <SelectItem value="Crise">Crise</SelectItem>
+                                  <SelectItem value="Birra">Birra</SelectItem>
+                                  <SelectItem value="Agressividade">Agressividade</SelectItem>
+                                  <SelectItem value="Comportamento Repetitivo">Comportamento Repetitivo</SelectItem>
+                                  <SelectItem value="Dificuldade de Comunicação">Dificuldade de Comunicação</SelectItem>
+                                  <SelectItem value="Interação Social Positiva">Interação Social Positiva</SelectItem>
+                                  <SelectItem value="Progresso">Progresso</SelectItem>
                                   <SelectItem value="Outro">Outro</SelectItem>
                                 </SelectContent>
                               </Select>
@@ -843,15 +841,16 @@ export function ParentDashboard() {
                             </div>
 
                             <div className="space-y-2">
-                              <Label htmlFor="eventSeverity">Gravidade/Intensidade *</Label>
+                              <Label htmlFor="eventSeverity">Intensidade *</Label>
                               <Select value={eventSeverity} onValueChange={setEventSeverity} required>
                                 <SelectTrigger>
-                                  <SelectValue placeholder="Selecione a gravidade" />
+                                  <SelectValue placeholder="Selecione a intensidade" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="Baixa">Baixa - Situação tranquila</SelectItem>
-                                  <SelectItem value="Média">Média - Requer atenção</SelectItem>
-                                  <SelectItem value="Alta">Alta - Situação crítica</SelectItem>
+                                  <SelectItem value="Normal">Normal</SelectItem>
+                                  <SelectItem value="Médio">Médio</SelectItem>
+                                  <SelectItem value="Alerta">Alerta</SelectItem>
+                                  <SelectItem value="Grave">Grave</SelectItem>
                                 </SelectContent>
                               </Select>
                             </div>

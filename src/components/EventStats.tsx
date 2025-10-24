@@ -17,10 +17,18 @@ export function EventStats({ events }: EventStatsProps) {
   // Calculate statistics
   const totalEvents = events.length
   const severityCounts = {
+    Normal: events.filter(e => e.severity === 'Normal').length,
+    Médio: events.filter(e => e.severity === 'Médio').length,
+    Alerta: events.filter(e => e.severity === 'Alerta').length,
+    Grave: events.filter(e => e.severity === 'Grave').length,
+    // Legacy support
     Baixa: events.filter(e => e.severity === 'Baixa').length,
     Média: events.filter(e => e.severity === 'Média').length,
     Alta: events.filter(e => e.severity === 'Alta').length,
   }
+
+  // Combinar valores novos com legacy
+  const highSeverityCount = severityCounts.Grave + severityCounts.Alerta + severityCounts.Alta
 
   const typeCounts = events.reduce((acc, event) => {
     acc[event.type] = (acc[event.type] || 0) + 1
@@ -102,14 +110,14 @@ export function EventStats({ events }: EventStatsProps) {
 
       <Card>
         <CardHeader className="pb-2">
-          <CardDescription>Alta Gravidade</CardDescription>
-          <CardTitle className="text-3xl">{severityCounts.Alta}</CardTitle>
+          <CardDescription>Alta Intensidade</CardDescription>
+          <CardTitle className="text-3xl">{highSeverityCount}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-2 text-sm">
-            <AlertCircle className={`w-4 h-4 ${severityCounts.Alta > 0 ? 'text-red-500' : 'text-green-500'}`} />
+            <AlertCircle className={`w-4 h-4 ${highSeverityCount > 0 ? 'text-red-500' : 'text-green-500'}`} />
             <span className="text-muted-foreground">
-              {severityCounts.Alta > 0 ? 'Requer atenção' : 'Tudo bem'}
+              {highSeverityCount > 0 ? 'Requer atenção' : 'Tudo bem'}
             </span>
           </div>
         </CardContent>
