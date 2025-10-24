@@ -1,4 +1,5 @@
 // Autazul Server - Updated 2025-10-24
+// Server index.tsx - Autazul Backend - Debug v4
 import { Hono } from 'npm:hono'
 import { cors } from 'npm:hono/cors'
 import { logger } from 'npm:hono/logger'
@@ -10,10 +11,18 @@ const app = new Hono()
 app.use('*', cors())
 app.use('*', logger(console.log))
 
-const supabase = createClient(
-  Deno.env.get('SUPABASE_URL')!,
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-)
+// Verify environment variables
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  console.error('❌ Missing required environment variables!')
+  console.error('SUPABASE_URL:', SUPABASE_URL ? 'Set' : 'Missing')
+  console.error('SUPABASE_SERVICE_ROLE_KEY:', SUPABASE_SERVICE_ROLE_KEY ? 'Set' : 'Missing')
+  throw new Error('Missing required environment variables')
+}
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
 // ===== EMAIL CONFIGURATION =====
 import nodemailer from "npm:nodemailer@6.9.7";
@@ -73,7 +82,28 @@ function generateToken() {
   return crypto.randomUUID().replace(/-/g, '')
 }
 
+// Admin emails from environment variables
+const ADMIN_EMAILS = [
+  Deno.env.get('ADMIN_USER1') || '',
+  Deno.env.get('ADMIN_USER2') || '',
+].filter(Boolean)
+
+// Helper function to check if user is admin
+function isAdmin(email: string): boolean {
+  return ADMIN_EMAILS.includes(email)
+}
+
+console.log('🚀 Autazul Server Starting...')
+console.log('📍 Base URL: /make-server-a07d0a8e')
+console.log('✅ CORS enabled for all origins')
+
 // ===== AUTHENTICATION ROUTES =====
+
+// Health check
+app.get('/make-server-a07d0a8e/health', (c) => {
+  console.log('Health check called')
+  return c.json({ status: 'ok', timestamp: new Date().toISOString() })
+})
 
 // Signup - Always create as parent (base profile)
 app.post('/make-server-a07d0a8e/signup', async (c) => {
@@ -474,33 +504,6 @@ app.post('/make-server-a07d0a8e/professionals/invite-by-email', async (c) => {
     })
   } catch (error) {
     console.log('Error inviting professional by email:', error)
-    return c.json({ error: String(error) }, 500)
-  }
-})
-
-// Get pending invitations (for professional)
-app.get('/make-server-a07d0a8e/invitations/pending', async (c) => {
-  try {
-    const accessToken = c.req.header('Authorization')?.split(' ')[1]
-    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
-    if (error || !user) {
-      return c.json({ error: 'Unauthorized' }, 401)
-    }
-
-    const notifKey = `notifications:user:${user.id}`
-    const notifIds = await kv.get(notifKey) || []
-    
-    const invitations = []
-    for (const id of notifIds) {
-      const invitation = await kv.get(`invitation:${id}`)
-      if (invitation && invitation.status === 'pending') {
-        invitations.push(invitation)
-      }
-    }
-
-    return c.json({ invitations })
-  } catch (error) {
-    console.log('Error fetching pending invitations:', error)
     return c.json({ error: String(error) }, 500)
   }
 })
@@ -1826,12 +1829,6 @@ app.put('/make-server-a07d0a8e/appointments/:appointmentId', async (c) => {
 
 // ===== ADMIN ROUTES =====
 
-// Get admin emails from environment variables
-const ADMIN_EMAILS = [
-  Deno.env.get('ADMIN_USER1') || '',
-  Deno.env.get('ADMIN_USER2') || ''
-].filter(email => email.length > 0).map(email => email.toLowerCase())
-
 console.log('Admin emails configured:', ADMIN_EMAILS.length > 0 ? `${ADMIN_EMAILS.length} admins` : 'No admins configured')
 
 // Check if user is admin (async to check both env vars and KV store)
@@ -1842,11 +1839,6 @@ async function isAdminCheck(email: string): Promise<boolean> {
   
   const adminList = await kv.get('admin_list') || []
   return adminList.includes(email.toLowerCase())
-}
-
-// Sync version for backward compatibility
-function isAdmin(email: string): boolean {
-  return ADMIN_EMAILS.includes(email.toLowerCase())
 }
 
 // Get admin settings
@@ -3263,280 +3255,32 @@ async function sendVerificationEmail(email: string, name: string, code: string) 
   }
 }
 
-// Helper function to create notifications
-async function createNotification(
+// ===== LGPD COMPLIANCE ROUTES =====
+
+// Helper function for audit logging
+async function createAuditLog(
   userId: string,
-  type: string,
-  title: string,
-  message: string,
-  relatedId?: string
+  action: string,
+  details: any
 ) {
-  const notificationId = generateId()
-  const notification = {
-    id: notificationId,
+  const logId = generateId()
+  const log = {
+    id: logId,
     userId,
-    type,
-    title,
-    message,
-    relatedId,
-    read: false,
+    action,
+    details,
     createdAt: new Date().toISOString()
   }
   
-  await kv.set(`notification:${notificationId}`, notification)
+  await kv.set(`audit_log:${logId}`, log)
   
-  // Add to user's notifications list
-  const userNotificationsKey = `notifications:user:${userId}`
-  const existingNotifications = await kv.get(userNotificationsKey) || []
-  await kv.set(userNotificationsKey, [notificationId, ...existingNotifications])
+  // Also add to user's audit log list
+  const userAuditKey = `audit_logs:user:${userId}`
+  const existingLogs = await kv.get(userAuditKey) || []
+  await kv.set(userAuditKey, [logId, ...existingLogs])
   
-  return notification
+  return log
 }
-
-// ===== NOTIFICATIONS ROUTES =====
-
-// Get user's notifications
-app.get('/make-server-a07d0a8e/notifications', async (c) => {
-  try {
-    const accessToken = c.req.header('Authorization')?.split(' ')[1]
-    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
-    
-    if (error || !user) {
-      console.log('Unauthorized access to /notifications - no valid token')
-      return c.json({ error: 'Unauthorized' }, 401)
-    }
-
-    console.log(`📬 Loading notifications for user: ${user.id}`)
-    
-    // Get user's notification IDs
-    const userNotificationsKey = `notifications:user:${user.id}`
-    const notificationIds = await kv.get(userNotificationsKey) || []
-    
-    console.log(`Found ${notificationIds.length} notification IDs`)
-    
-    // Get full notification objects
-    const notifications = []
-    for (const notifId of notificationIds) {
-      const notif = await kv.get(`notification:${notifId}`)
-      if (notif) {
-        notifications.push(notif)
-      }
-    }
-    
-    console.log(`✅ Returning ${notifications.length} notifications`)
-    
-    return c.json({ notifications })
-  } catch (error) {
-    console.error('Error loading notifications:', error)
-    return c.json({ error: String(error) }, 500)
-  }
-})
-
-// Mark notification as read
-app.put('/make-server-a07d0a8e/notifications/:notificationId/read', async (c) => {
-  try {
-    const accessToken = c.req.header('Authorization')?.split(' ')[1]
-    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
-    
-    if (error || !user) {
-      return c.json({ error: 'Unauthorized' }, 401)
-    }
-
-    const notificationId = c.req.param('notificationId')
-    const notification = await kv.get(`notification:${notificationId}`)
-    
-    if (!notification) {
-      return c.json({ error: 'Notification not found' }, 404)
-    }
-    
-    if (notification.userId !== user.id) {
-      return c.json({ error: 'Unauthorized' }, 403)
-    }
-    
-    notification.read = true
-    notification.readAt = new Date().toISOString()
-    await kv.set(`notification:${notificationId}`, notification)
-    
-    return c.json({ success: true })
-  } catch (error) {
-    console.error('Error marking notification as read:', error)
-    return c.json({ error: String(error) }, 500)
-  }
-})
-
-// Mark all notifications as read
-app.put('/make-server-a07d0a8e/notifications/read-all', async (c) => {
-  try {
-    const accessToken = c.req.header('Authorization')?.split(' ')[1]
-    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
-    
-    if (error || !user) {
-      return c.json({ error: 'Unauthorized' }, 401)
-    }
-
-    const userNotificationsKey = `notifications:user:${user.id}`
-    const notificationIds = await kv.get(userNotificationsKey) || []
-    
-    for (const notifId of notificationIds) {
-      const notification = await kv.get(`notification:${notifId}`)
-      if (notification && !notification.read) {
-        notification.read = true
-        notification.readAt = new Date().toISOString()
-        await kv.set(`notification:${notifId}`, notification)
-      }
-    }
-    
-    return c.json({ success: true })
-  } catch (error) {
-    console.error('Error marking all notifications as read:', error)
-    return c.json({ error: String(error) }, 500)
-  }
-})
-
-// ===== INVITATIONS ROUTES =====
-
-// Get pending invitations for user
-app.get('/make-server-a07d0a8e/invitations/pending', async (c) => {
-  try {
-    const accessToken = c.req.header('Authorization')?.split(' ')[1]
-    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
-    
-    if (error || !user) {
-      console.log('Unauthorized access to /invitations/pending - no valid token')
-      return c.json({ error: 'Unauthorized' }, 401)
-    }
-
-    console.log(`📨 Loading invitations for user: ${user.id}`)
-    
-    // Get all invitations
-    const allInvitations = await kv.getByPrefix('invitation:')
-    
-    // Filter for this user and pending status
-    const userInvitations = allInvitations.filter((inv: any) => 
-      inv.toUserId === user.id && inv.status === 'pending'
-    )
-    
-    console.log(`✅ Found ${userInvitations.length} pending invitations`)
-    
-    return c.json({ invitations: userInvitations })
-  } catch (error) {
-    console.error('Error loading invitations:', error)
-    return c.json({ error: String(error) }, 500)
-  }
-})
-
-// Accept invitation
-app.post('/make-server-a07d0a8e/invitations/:invitationId/accept', async (c) => {
-  try {
-    const accessToken = c.req.header('Authorization')?.split(' ')[1]
-    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
-    
-    if (error || !user) {
-      return c.json({ error: 'Unauthorized' }, 401)
-    }
-
-    const invitationId = c.req.param('invitationId')
-    const invitation = await kv.get(`invitation:${invitationId}`)
-    
-    if (!invitation) {
-      return c.json({ error: 'Invitation not found' }, 404)
-    }
-    
-    if (invitation.toUserId !== user.id) {
-      return c.json({ error: 'Unauthorized' }, 403)
-    }
-    
-    if (invitation.status !== 'pending') {
-      return c.json({ error: 'Invitation already processed' }, 400)
-    }
-    
-    // Update invitation status
-    invitation.status = 'accepted'
-    invitation.acceptedAt = new Date().toISOString()
-    await kv.set(`invitation:${invitationId}`, invitation)
-    
-    // Handle different invitation types
-    if (invitation.type === 'coparent_invite') {
-      // Add to child's co-parents list
-      const coParentsKey = `coparents:child:${invitation.childId}`
-      const existingCoParents = await kv.get(coParentsKey) || []
-      
-      if (!existingCoParents.includes(user.id)) {
-        await kv.set(coParentsKey, [...existingCoParents, user.id])
-      }
-      
-      // Add child to user's children list
-      const childrenKey = `children:parent:${user.id}`
-      const existingChildren = await kv.get(childrenKey) || []
-      
-      if (!existingChildren.includes(invitation.childId)) {
-        await kv.set(childrenKey, [...existingChildren, invitation.childId])
-      }
-      
-      // Notify the parent
-      await createNotification(
-        invitation.fromUserId,
-        'coparent_accepted',
-        'Co-responsável aceitou convite',
-        `${user.user_metadata?.name || user.email} aceitou ser co-responsável de ${invitation.childName}`,
-        invitation.childId
-      )
-    }
-    
-    return c.json({ success: true, message: 'Invitation accepted successfully' })
-  } catch (error) {
-    console.error('Error accepting invitation:', error)
-    return c.json({ error: String(error) }, 500)
-  }
-})
-
-// Reject invitation
-app.post('/make-server-a07d0a8e/invitations/:invitationId/reject', async (c) => {
-  try {
-    const accessToken = c.req.header('Authorization')?.split(' ')[1]
-    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
-    
-    if (error || !user) {
-      return c.json({ error: 'Unauthorized' }, 401)
-    }
-
-    const invitationId = c.req.param('invitationId')
-    const invitation = await kv.get(`invitation:${invitationId}`)
-    
-    if (!invitation) {
-      return c.json({ error: 'Invitation not found' }, 404)
-    }
-    
-    if (invitation.toUserId !== user.id) {
-      return c.json({ error: 'Unauthorized' }, 403)
-    }
-    
-    if (invitation.status !== 'pending') {
-      return c.json({ error: 'Invitation already processed' }, 400)
-    }
-    
-    // Update invitation status
-    invitation.status = 'rejected'
-    invitation.rejectedAt = new Date().toISOString()
-    await kv.set(`invitation:${invitationId}`, invitation)
-    
-    // Notify the sender
-    await createNotification(
-      invitation.fromUserId,
-      'invitation_rejected',
-      'Convite recusado',
-      `${user.user_metadata?.name || user.email} recusou o convite para ${invitation.childName}`,
-      invitation.childId
-    )
-    
-    return c.json({ success: true, message: 'Invitation rejected successfully' })
-  } catch (error) {
-    console.error('Error rejecting invitation:', error)
-    return c.json({ error: String(error) }, 500)
-  }
-})
-
-// ===== LGPD COMPLIANCE ROUTES =====
 
 // Privacy Policy and Terms storage
 app.get('/make-server-a07d0a8e/lgpd/privacy-policy', async (c) => {
@@ -4050,27 +3794,6 @@ app.get('/make-server-a07d0a8e/admin/audit-logs', async (c) => {
   }
 })
 
-// Helper: Create audit log
-async function createAuditLog(userId: string, action: string, details: any) {
-  const log = {
-    id: generateId(),
-    userId,
-    action,
-    details,
-    timestamp: new Date().toISOString()
-  }
-  
-  const logs = await kv.get('audit_logs') || []
-  logs.push(log)
-  
-  // Keep only last 10000 logs
-  if (logs.length > 10000) {
-    logs.splice(0, logs.length - 10000)
-  }
-  
-  await kv.set('audit_logs', logs)
-}
-
 // Admin: System backup
 app.get('/make-server-a07d0a8e/admin/backup', async (c) => {
   try {
@@ -4312,223 +4035,13 @@ app.get('/make-server-a07d0a8e/admin/data-sharing-report/:userId', async (c) => 
   }
 })
 
-Deno.serve(app.fetch)
-# Política de Privacidade - Autazul
+console.log('🎉 All routes registered successfully')
+console.log('🚀 Starting Deno server...')
 
-Última atualização: ${new Date().toLocaleDateString('pt-BR')}
-
-## 1. Introdução
-
-A Autazul é comprometida em proteger a privacidade dos usuários. Esta política de privacidade descreve como coletamos, usamos, compartilhamos e protegemos suas informações pessoais quando você usa nossos serviços.
-
-## 2. Coleta de Informações
-
-Coletamos as seguintes informações pessoais:
-- Nome completo
-- Endereço de e-mail
-- Senha (armazenada com criptografia)
-- Informações sobre crianças (nome, data de nascimento, foto, escola)
-- Eventos e acompanhamentos registrados
-
-## 3. Uso de Informações
-
-Usamos suas informações para:
-- Fornecer e melhorar nossos serviços
-- Facilitar o acompanhamento do desenvolvimento de crianças autistas
-- Comunicação entre pais e profissionais
-- Cumprir com obrigações legais
-
-## 4. Compartilhamento de Informações
-
-Não compartilhamos suas informações pessoais com terceiros, exceto:
-- Com profissionais convidados por você
-- Com co-responsáveis autorizados
-- Quando exigido por lei
-
-## 5. Proteção de Dados de Menores
-
-Implementamos medidas especiais de proteção para dados de crianças:
-- Criptografia em trânsito e em repouso
-- Controle de acesso granular
-- Auditoria de todos os acessos
-- Apenas responsáveis legais podem cadastrar crianças
-
-## 6. Seus Direitos (LGPD)
-
-Você tem direito a:
-- Confirmar a existência de tratamento
-- Acessar seus dados
-- Corrigir dados incompletos ou incorretos
-- Solicitar a eliminação de dados
-- Portabilidade dos dados
-- Revogar consentimento
-- Opor-se ao tratamento
-
-## 7. Segurança
-
-Implementamos medidas de segurança técnicas e organizacionais para proteger seus dados contra acesso não autorizado, perda, alteração ou divulgação.
-
-## 8. Retenção de Dados
-
-Mantemos seus dados pelo tempo necessário para fornecer os serviços ou conforme exigido por lei.
-
-## 9. Contato
-
-Para exercer seus direitos ou esclarecer dúvidas sobre privacidade:
-Email: privacidade@autazul.com
-
-## 10. Alterações
-
-Esta política pode ser atualizada periodicamente. Notificaremos sobre mudanças significativas.
-`
-
-const DEFAULT_TERMS = `
-# Termos de Serviço - Autazul
-
-Última atualização: ${new Date().toLocaleDateString('pt-BR')}
-
-## 1. Aceitação dos Termos
-
-Ao usar o Autazul, você concorda com estes termos de serviço.
-
-## 2. Descrição do Serviço
-
-O Autazul é uma plataforma para pais e responsáveis acompanharem o desenvolvimento de crianças autistas com a colaboração de profissionais.
-
-## 3. Cadastro e Conta
-
-- Você deve fornecer informações verdadeiras e precisas
-- É responsável pela segurança de sua senha
-- Não pode compartilhar sua conta com terceiros
-- Deve ter 18 anos ou mais para criar uma conta
-
-## 4. Uso Aceitável
-
-Você concorda em:
-- Usar o serviço apenas para fins legítimos
-- Não postar conteúdo ofensivo, ilegal ou prejudicial
-- Respeitar a privacidade de outros usuários
-- Não tentar acessar áreas restritas do sistema
-
-## 5. Conteúdo do Usuário
-
-- Você é responsável por todo conteúdo que posta
-- Não publicamos ou compartilhamos seu conteúdo sem permissão
-- Você mantém a propriedade de seu conteúdo
-
-## 6. Privacidade
-
-Nossa política de privacidade descreve como coletamos, usamos e protegemos suas informações pessoais.
-
-## 7. Propriedade Intelectual
-
-Todos os direitos de propriedade intelectual do Autazul pertencem aos seus criadores. Você não pode copiar, modificar ou distribuir nosso software sem autorização.
-
-## 8. Limitação de Responsabilidade
-
-O Autazul não é responsável por:
-- Perda de dados devido a falhas técnicas
-- Decisões tomadas com base nas informações do sistema
-- Danos indiretos ou consequenciais
-
-## 9. Modificações do Serviço
-
-Podemos modificar ou descontinuar o serviço a qualquer momento, com ou sem aviso prévio.
-
-## 10. Rescisão
-
-Podemos encerrar sua conta se você violar estes termos. Você pode encerrar sua conta a qualquer momento solicitando a exclusão.
-
-## 11. Lei Aplicável
-
-Estes termos são regidos pelas leis brasileiras, incluindo a LGPD (Lei Geral de Proteção de Dados).
-
-## 12. Contato
-
-Para questões sobre estes termos:
-Email: suporte@autazul.com
-
-## 13. Alterações
-
-Podemos atualizar estes termos. Alterações significativas serão notificadas aos usuários.
-`
-
-// LGPD: Get privacy policy
-app.get('/make-server-a07d0a8e/lgpd/privacy-policy', async (c) => {
-  try {
-    const privacyPolicy = await kv.get('lgpd:privacy_policy') || DEFAULT_PRIVACY_POLICY
-    return c.json({ privacyPolicy })
-  } catch (error) {
-    console.error('Error fetching privacy policy:', error)
-    return c.json({ error: String(error) }, 500)
-  }
-})
-
-// LGPD: Get terms
-app.get('/make-server-a07d0a8e/lgpd/terms', async (c) => {
-  try {
-    const terms = await kv.get('lgpd:terms') || DEFAULT_TERMS
-    return c.json({ terms })
-  } catch (error) {
-    console.error('Error fetching terms:', error)
-    return c.json({ error: String(error) }, 500)
-  }
-})
-
-// Admin: Update privacy policy
-app.put('/make-server-a07d0a8e/admin/privacy-policy', async (c) => {
-  try {
-    const accessToken = c.req.header('Authorization')?.split(' ')[1]
-    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
-    if (error || !user) {
-      return c.json({ error: 'Unauthorized' }, 401)
-    }
-
-    if (!isAdmin(user.email || '')) {
-      return c.json({ error: 'Forbidden - Admin access required' }, 403)
-    }
-
-    const { content } = await c.req.json()
-    
-    await kv.set('lgpd:privacy_policy', content)
-    
-    await createAuditLog(user.id, 'update_privacy_policy', { 
-      timestamp: new Date().toISOString() 
-    })
-
-    return c.json({ success: true })
-  } catch (error) {
-    console.error('Error updating privacy policy:', error)
-    return c.json({ error: String(error) }, 500)
-  }
-})
-
-// Admin: Update terms
-app.put('/make-server-a07d0a8e/admin/terms', async (c) => {
-  try {
-    const accessToken = c.req.header('Authorization')?.split(' ')[1]
-    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
-    if (error || !user) {
-      return c.json({ error: 'Unauthorized' }, 401)
-    }
-
-    if (!isAdmin(user.email || '')) {
-      return c.json({ error: 'Forbidden - Admin access required' }, 403)
-    }
-
-    const { content } = await c.req.json()
-    
-    await kv.set('lgpd:terms', content)
-    
-    await createAuditLog(user.id, 'update_terms', { 
-      timestamp: new Date().toISOString() 
-    })
-
-    return c.json({ success: true })
-  } catch (error) {
-    console.error('Error updating terms:', error)
-    return c.json({ error: String(error) }, 500)
-  }
-})
-
-Deno.serve(app.fetch)
+try {
+  Deno.serve(app.fetch)
+  console.log('✅ Server started successfully!')
+} catch (error) {
+  console.error('❌ Failed to start server:', error)
+  throw error
+}

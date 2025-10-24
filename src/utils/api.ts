@@ -44,12 +44,16 @@ export class ApiClient {
 
     const fullUrl = `${BASE_URL}${endpoint}`
     console.log(`API Request: ${options.method || 'GET'} ${fullUrl}`)
+    console.log(`Headers:`, headers)
 
     try {
       const response = await fetch(fullUrl, {
         ...options,
         headers,
       })
+
+      console.log(`Response status: ${response.status}`)
+      console.log(`Response ok: ${response.ok}`)
 
       const data = await response.json()
       console.log(`API Response for ${endpoint}:`, { status: response.status, data })
@@ -61,6 +65,8 @@ export class ApiClient {
       return data
     } catch (error) {
       console.error(`API Error on ${endpoint}:`, error)
+      console.error(`Error type:`, error instanceof TypeError ? 'TypeError (network error)' : 'Other error')
+      console.error(`Error message:`, error.message)
       throw error
     }
   }
