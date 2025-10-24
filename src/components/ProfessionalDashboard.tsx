@@ -16,14 +16,15 @@ import { AdBanner } from './AdBanner'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 import { Button } from './ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from './ui/dialog'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
 import { Textarea } from './ui/textarea'
 import { Separator } from './ui/separator'
-import { Calendar, Users, FileText, Plus, LogOut, Shield, Crown, Clock } from 'lucide-react'
+import { Calendar as CalendarIcon, Users, FileText, Plus, LogOut, Shield, Crown, Clock } from 'lucide-react'
 import { toast } from 'sonner@2.0.3'
 
+// Componente do Dashboard do Profissional
 interface Child {
   id: string
   name: string

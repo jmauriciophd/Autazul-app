@@ -18,6 +18,7 @@ import {
   Filter, RefreshCw, Download, Loader2 
 } from 'lucide-react'
 import { toast } from 'sonner@2.0.3'
+import { api } from '../utils/api'
 
 interface Event {
   id: string
@@ -132,16 +133,10 @@ export function ReportsGenerator({ childId, childName }: ReportsGeneratorProps) 
       const yearMonth = `${year}-${month}`
       
       try {
-        const response = await fetch(
-          `https://vgtgexfpklqiyctvupbf.supabase.co/functions/v1/make-server-a07d0a8e/events/${childId}/${yearMonth}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('auth_token') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZndGdleGZwa2xxaXljdHZ1cGJmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzU0MTMyMzYsImV4cCI6MjA1MDk4OTIzNn0.cImKo2y8VQjXZj1n9fZnEtIr6EYI7oO60FxqDNIx4Ic'}`,
-              'Content-Type': 'application/json'
-            }
-          }
+        const response = await api.get(
+          `events/${childId}/${yearMonth}`
         )
-        const data = await response.json()
+        const data = response.data
         if (data.events) {
           allEvents.push(...data.events)
         }

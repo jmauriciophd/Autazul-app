@@ -65,6 +65,12 @@ export class ApiClient {
     }
   }
 
+  // Helper method for GET requests
+  async get<T = any>(endpoint: string): Promise<{ data: T }> {
+    const result = await this.request<T>(`/${endpoint}`)
+    return { data: result }
+  }
+
   // Auth
   async signup(email: string, password: string, name: string, role: 'parent' | 'professional' = 'parent') {
     return this.request<{ success: boolean; userId: string }>('/signup', {
@@ -344,6 +350,14 @@ export class ApiClient {
 
   async updateAdminSettings(settings: {
     googleAdsCode?: string
+    googleAdsSegmentation?: string
+    banners?: Array<{
+      id: string
+      imageUrl: string
+      link?: string
+      title?: string
+      order: number
+    }>
     bannerUrl?: string
     bannerLink?: string
   }) {
@@ -351,6 +365,25 @@ export class ApiClient {
       method: 'PUT',
       body: JSON.stringify(settings),
     })
+  }
+
+  async getAdminStats() {
+    return this.request<{
+      systemStats: {
+        totalUsers: number
+        totalParents: number
+        totalProfessionals: number
+        totalChildren: number
+        totalEvents: number
+      }
+      userStats: Array<{
+        name: string
+        email: string
+        userType: string
+        registrationCount: number
+        joinedAt: string
+      }>
+    }>('/admin/stats')
   }
 
   async getPublicSettings() {
