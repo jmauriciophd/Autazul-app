@@ -501,6 +501,20 @@ app.post('/make-server-a07d0a8e/professionals/invite-by-email', async (c) => {
 
     await kv.set(`invitation:${inviteId}`, invitation)
     
+    // Also create a token-based invite for email link
+    const token = generateToken()
+    const tokenInvite = {
+      token,
+      type: 'professional',
+      childId,
+      parentId: user.id,
+      professionalEmail,
+      professionalName: professional.name,
+      invitationId: inviteId, // Link to the notification
+      createdAt: new Date().toISOString()
+    }
+    await kv.set(`invite:professional:${token}`, tokenInvite)
+    
     // Add to professional's notifications
     const notifKey = `notifications:user:${professional.id}`
     const existingNotifs = await kv.get(notifKey) || []
@@ -511,7 +525,8 @@ app.post('/make-server-a07d0a8e/professionals/invite-by-email', async (c) => {
     const emailHtml = generateInviteEmailTemplate(
       professional.name || professional.email,
       parent?.name || user.email,
-      child.name
+      child.name,
+      token
     )
     
     try {
@@ -561,15 +576,26 @@ app.post('/make-server-a07d0a8e/invitations/:invitationId/accept', async (c) => 
       return c.json({ error: 'Convite já foi processado' }, 400)
     }
 
-    // Link professional to child
-    const professionalsKey = `professionals:child:${invitation.childId}`
-    const existingProfessionals = await kv.get(professionalsKey) || []
-    await kv.set(professionalsKey, [...existingProfessionals, user.id])
+    // Link based on invitation type
+    if (invitation.type === 'professional_invite') {
+      // Link professional to child
+      const professionalsKey = `professionals:child:${invitation.childId}`
+      const existingProfessionals = await kv.get(professionalsKey) || []
+      await kv.set(professionalsKey, [...existingProfessionals, user.id])
 
-    // Add child to professional's list
-    const childrenKey = `children:professional:${user.id}`
-    const existingChildren = await kv.get(childrenKey) || []
-    await kv.set(childrenKey, [...existingChildren, invitation.childId])
+      // Add child to professional's list
+      const childrenKey = `children:professional:${user.id}`
+      const existingChildren = await kv.get(childrenKey) || []
+      await kv.set(childrenKey, [...existingChildren, invitation.childId])
+    } else if (invitation.type === 'coparent_invite') {
+      // Link co-parent to child
+      const coParentsKey = `coparents:child:${invitation.childId}`
+      const existingCoParents = await kv.get(coParentsKey) || []
+      await kv.set(coParentsKey, [...existingCoParents, user.id])
+      
+      // Note: Co-parent relationship is tracked via coparents:child:{childId}
+      // The /children endpoint will detect this and include the child automatically
+    }
 
     // Update invitation status
     await kv.set(`invitation:${invitationId}`, {
@@ -1181,6 +1207,20 @@ app.post('/make-server-a07d0a8e/coparents/invite-by-email', async (c) => {
 
     await kv.set(`invitation:${inviteId}`, invitation)
     
+    // Also create a token-based invite for email link
+    const token = generateToken()
+    const tokenInvite = {
+      token,
+      type: 'coparent',
+      childId,
+      parentId: user.id,
+      coParentEmail,
+      coParentName: coParent.name,
+      invitationId: inviteId, // Link to the notification
+      createdAt: new Date().toISOString()
+    }
+    await kv.set(`invite:coparent:${token}`, tokenInvite)
+    
     // Add to co-parent's notifications
     const notifKey = `notifications:user:${coParent.id}`
     const existingNotifs = await kv.get(notifKey) || []
@@ -1191,7 +1231,8 @@ app.post('/make-server-a07d0a8e/coparents/invite-by-email', async (c) => {
     const emailHtml = generateCoParentInviteEmailTemplate(
       coParent.name || coParent.email,
       parent?.name || user.email,
-      child.name
+      child.name,
+      token
     )
     
     try {
@@ -1281,11 +1322,9 @@ app.post('/make-server-a07d0a8e/coparents/accept/:token', async (c) => {
     const coParentsKey = `coparents:child:${invite.childId}`
     const existingCoParents = await kv.get(coParentsKey) || []
     await kv.set(coParentsKey, [...existingCoParents, coParentId])
-
-    // Add child to co-parent's children list
-    const childrenKey = `children:parent:${coParentId}`
-    const existingChildren = await kv.get(childrenKey) || []
-    await kv.set(childrenKey, [...existingChildren, invite.childId])
+    
+    // Note: Co-parent relationship is tracked via coparents:child:{childId}
+    // The /children endpoint will detect this and include the child automatically
 
     // Delete the invite
     await kv.del(`invite:coparent:${token}`)
@@ -1352,14 +1391,9 @@ app.post('/make-server-a07d0a8e/coparents/accept-by-email/:token', async (c) => 
     }
     
     await kv.set(coParentsKey, [...existingCoParents, coParentId])
-
-    // Add child to co-parent's children list
-    const childrenKey = `children:parent:${coParentId}`
-    const existingChildren = await kv.get(childrenKey) || []
     
-    if (!existingChildren.includes(invite.childId)) {
-      await kv.set(childrenKey, [...existingChildren, invite.childId])
-    }
+    // Note: Co-parent relationship is tracked via coparents:child:{childId}
+    // The /children endpoint will detect this and include the child automatically
 
     // Delete the invite
     await kv.del(`invite:coparent:${token}`)
@@ -1675,11 +1709,9 @@ app.delete('/make-server-a07d0a8e/children/:childId/coparent/leave', async (c) =
 
     // Remove from child's co-parents list
     await kv.set(`coparents:child:${childId}`, coParentIds.filter((id: string) => id !== user.id))
-
-    // Remove from user's children list
-    const userChildrenKey = `children:${user.id}`
-    const userChildren = await kv.get(userChildrenKey) || []
-    await kv.set(userChildrenKey, userChildren.filter((id: string) => id !== childId))
+    
+    // Note: No need to remove from children list - co-parent relationship is only tracked via coparents:child
+    // The /children endpoint will automatically exclude this child now
 
     // Create notification for the owner
     const ownerUser = await kv.get(`user:${child.parentId}`)
@@ -2775,7 +2807,8 @@ function generateChildShareEmailTemplate(parentName: string, fromParentName: str
   `
 }
 
-function generateCoParentInviteEmailTemplate(coParentName: string, parentName: string, childName: string): string {
+function generateCoParentInviteEmailTemplate(coParentName: string, parentName: string, childName: string, token?: string): string {
+  const inviteLink = token ? `https://autazul-app.vercel.app/#/coparent/accept/${token}` : 'https://autazul-app.vercel.app'
   return `
 <!DOCTYPE html>
 <html>
@@ -2912,17 +2945,17 @@ function generateCoParentInviteEmailTemplate(coParentName: string, parentName: s
       </p>
       
       <center>
-        <a href="https://ibdzxuctzlixghnfbhjl.supabase.co" class="cta-button">
+        <a href="${inviteLink}" class="cta-button">
           ✅ Aceitar Convite
         </a>
       </center>
       
       <div class="instructions">
         <p><strong>📱 Como aceitar:</strong></p>
-        <p>1. Acesse o sistema Autazul</p>
-        <p>2. Faça login com sua conta</p>
-        <p>3. Veja o convite nas notificações (ícone de sino 🔔)</p>
-        <p>4. Clique em "Aceitar" para começar a acessar as informações</p>
+        <p>1. Clique no botão acima para aceitar o convite</p>
+        <p>2. Faça login com sua conta ou crie uma nova</p>
+        <p>3. O acesso será vinculado automaticamente</p>
+        <p>4. Comece a acompanhar ${childName}!</p>
       </div>
       
       <p class="message" style="font-size: 14px; color: #9ca3af;">
@@ -2945,7 +2978,8 @@ function generateCoParentInviteEmailTemplate(coParentName: string, parentName: s
   `
 }
 
-function generateInviteEmailTemplate(professionalName: string, parentName: string, childName: string): string {
+function generateInviteEmailTemplate(professionalName: string, parentName: string, childName: string, token?: string): string {
+  const inviteLink = token ? `https://autazul-app.vercel.app/#/professional/accept/${token}` : 'https://autazul-app.vercel.app'
   return `
 <!DOCTYPE html>
 <html>
@@ -3081,17 +3115,17 @@ function generateInviteEmailTemplate(professionalName: string, parentName: strin
       </p>
       
       <center>
-        <a href="https://ibdzxuctzlixghnfbhjl.supabase.co" class="cta-button">
+        <a href="${inviteLink}" class="cta-button">
           ✅ Aceitar Convite
         </a>
       </center>
       
       <div class="instructions">
         <p><strong>📱 Como aceitar:</strong></p>
-        <p>1. Acesse o sistema Autazul</p>
-        <p>2. Faça login com sua conta</p>
-        <p>3. Veja o convite nas notificações (ícone de sino 🔔)</p>
-        <p>4. Clique em "Aceitar" para começar o acompanhamento</p>
+        <p>1. Clique no botão acima para aceitar o convite</p>
+        <p>2. Faça login com sua conta ou crie uma nova</p>
+        <p>3. O acesso será vinculado automaticamente</p>
+        <p>4. Comece a acompanhar ${childName}!</p>
       </div>
       
       <p class="message" style="font-size: 14px; color: #9ca3af;">
