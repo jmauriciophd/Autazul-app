@@ -921,6 +921,10 @@
     height: 1.15rem;
   }
 
+  .h-\[60vh\] {
+    height: 60vh;
+  }
+
   .h-\[70vh\] {
     height: 70vh;
   }
@@ -955,6 +959,10 @@
 
   .max-h-\(--radix-select-content-available-height\) {
     max-height: var(--radix-select-content-available-height);
+  }
+
+  .max-h-\[80vh\] {
+    max-height: 80vh;
   }
 
   .max-h-\[90vh\] {

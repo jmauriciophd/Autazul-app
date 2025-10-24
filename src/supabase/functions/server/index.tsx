@@ -2795,9 +2795,9 @@ function generateChildShareEmailTemplate(parentName: string, fromParentName: str
     <div class="footer">
       <p><strong>Autazul - Acompanhamento e Cuidado</strong></p>
       <p>
-        <a href="mailto:suporte@autazul.com">Suporte</a> | 
-        <a href="#">Política de Privacidade</a> | 
-        <a href="#">Termos de Uso</a>
+        <a href="mailto:webservicesbsb@gmail.com">Suporte</a> | 
+        <a href="https://autazul-app.vercel.app/#/privacy">Política de Privacidade</a> | 
+        <a href="https://autazul-app.vercel.app/#/terms">Termos de Uso</a>
       </p>
       <p>© 2025 Autazul. Todos os direitos reservados.</p>
     </div>
@@ -2966,9 +2966,9 @@ function generateCoParentInviteEmailTemplate(coParentName: string, parentName: s
     <div class="footer">
       <p><strong>Autazul - Acompanhamento e Cuidado</strong></p>
       <p>
-        <a href="mailto:suporte@autazul.com">Suporte</a> | 
-        <a href="#">Política de Privacidade</a> | 
-        <a href="#">Termos de Uso</a>
+        <a href="mailto:webservicesbsb@gmail.com">Suporte</a> | 
+        <a href="https://autazul-app.vercel.app/#/privacy">Política de Privacidade</a> | 
+        <a href="https://autazul-app.vercel.app/#/terms">Termos de Uso</a>
       </p>
       <p>© 2025 Autazul. Todos os direitos reservados.</p>
     </div>
@@ -3136,9 +3136,9 @@ function generateInviteEmailTemplate(professionalName: string, parentName: strin
     <div class="footer">
       <p><strong>Autazul - Acompanhamento e Cuidado</strong></p>
       <p>
-        <a href="mailto:suporte@autazul.com">Suporte</a> | 
-        <a href="#">Política de Privacidade</a> | 
-        <a href="#">Termos de Uso</a>
+        <a href="mailto:webservicesbsb@gmail.com">Suporte</a> | 
+        <a href="https://autazul-app.vercel.app/#/privacy">Política de Privacidade</a> | 
+        <a href="https://autazul-app.vercel.app/#/terms">Termos de Uso</a>
       </p>
       <p>© 2025 Autazul. Todos os direitos reservados.</p>
     </div>
@@ -3279,9 +3279,9 @@ async function sendVerificationEmail(email: string, name: string, code: string) 
     <div class="footer">
       <p><strong>Autazul - Acompanhamento e Cuidado</strong></p>
       <p>
-        <a href="mailto:suporte@autazul.com">Suporte</a> | 
-        <a href="#">Política de Privacidade</a> | 
-        <a href="#">Termos de Uso</a>
+        <a href="mailto:webservicesbsb@gmail.com">Suporte</a> | 
+        <a href="https://autazul-app.vercel.app/#/privacy">Política de Privacidade</a> | 
+        <a href="https://autazul-app.vercel.app/#/terms">Termos de Uso</a>
       </p>
       <p>© 2025 Autazul. Todos os direitos reservados.</p>
     </div>
