@@ -8,6 +8,8 @@ import { FeedbackDialog } from './FeedbackDialog'
 import { SecuritySettings } from './SecuritySettings'
 import { AdminPanel } from './AdminPanel'
 import { ProfileSwitcher } from './ProfileSwitcher'
+import { EventCard } from './EventCard'
+import { Footer } from './Footer'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { Badge } from './ui/badge'
 import { ScrollArea } from './ui/scroll-area'
@@ -16,14 +18,17 @@ import { AdBanner } from './AdBanner'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 import { Button } from './ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from './ui/dialog'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
 import { Textarea } from './ui/textarea'
 import { Separator } from './ui/separator'
-import { Calendar, Users, FileText, Plus, LogOut, Shield, Crown, Clock } from 'lucide-react'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
+import { Calendar } from './ui/calendar'
+import { Calendar as CalendarIcon, Users, FileText, Plus, LogOut, Shield, Crown, Clock, ChevronLeft, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner@2.0.3'
 
+// Componente do Dashboard do Profissional
 interface Child {
   id: string
   name: string
@@ -37,6 +42,10 @@ interface Event {
   id: string
   childId: string
   professionalId: string
+  professionalName: string
+  creatorId?: string
+  creatorName?: string
+  creatorRole?: 'parent' | 'professional'
   type: string
   date: string
   time: string
@@ -49,6 +58,9 @@ export function ProfessionalDashboard() {
   const { user, signOut } = useAuth()
   const [children, setChildren] = useState<Child[]>([])
   const [events, setEvents] = useState<Event[]>([])
+  const [selectedChild, setSelectedChild] = useState<Child | null>(null)
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date())
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
   const [addEventDialogOpen, setAddEventDialogOpen] = useState(false)
   const [securitySettingsOpen, setSecuritySettingsOpen] = useState(false)
   const [showAdminPanel, setShowAdminPanel] = useState(false)
@@ -65,8 +77,13 @@ export function ProfessionalDashboard() {
 
   useEffect(() => {
     loadChildren()
-    loadRecentEvents()
   }, [])
+
+  useEffect(() => {
+    if (selectedChild) {
+      loadEvents()
+    }
+  }, [selectedChild, selectedDate])
 
   async function loadChildren() {
     try {
@@ -77,28 +94,16 @@ export function ProfessionalDashboard() {
     }
   }
 
-  async function loadRecentEvents() {
+  async function loadEvents() {
+    if (!selectedChild) return
     try {
-      // Load recent events for current month
-      const now = new Date()
-      const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-      
-      const allEvents: Event[] = []
-      for (const child of children) {
-        const { events: childEvents } = await api.getEvents(child.id, yearMonth)
-        allEvents.push(...childEvents)
-      }
-      
-      // Sort by date descending
-      allEvents.sort((a, b) => {
-        const dateA = new Date(`${a.date}T${a.time}`)
-        const dateB = new Date(`${b.date}T${b.time}`)
-        return dateB.getTime() - dateA.getTime()
-      })
-      
-      setEvents(allEvents.slice(0, 10)) // Show last 10 events
+      const year = selectedDate.getFullYear()
+      const month = String(selectedDate.getMonth() + 1).padStart(2, '0')
+      const yearMonth = `${year}-${month}`
+      const { events: eventsData } = await api.getEvents(selectedChild.id, yearMonth)
+      setEvents(eventsData)
     } catch (error) {
-      console.error('Error loading recent events:', error)
+      console.error('Error loading events:', error)
     }
   }
 
@@ -117,7 +122,7 @@ export function ProfessionalDashboard() {
         evaluation: eventEvaluation,
       })
       
-      await loadRecentEvents()
+      await loadEvents()
       setAddEventDialogOpen(false)
       
       // Reset form
@@ -128,13 +133,21 @@ export function ProfessionalDashboard() {
       setEventDescription('')
       setEventSeverity('')
       setEventEvaluation('')
+      
+      notify.success('Evento cadastrado!', 'O evento foi registrado com sucesso')
     } catch (error) {
       console.error('Error adding event:', error)
-      alert('Erro ao cadastrar evento. Tente novamente.')
+      notify.error('Erro ao cadastrar evento', 'Tente novamente')
     } finally {
       setLoading(false)
     }
   }
+
+  const daysWithEvents = new Set(
+    events.map(event => event.date)
+  )
+
+  const eventsForSelectedDate = events.filter(event => event.date === selectedDate.toISOString().split('T')[0])
 
   const severityColors: Record<string, string> = {
     'Normal': 'text-white border-green-500',
@@ -248,7 +261,7 @@ export function ProfessionalDashboard() {
                   {children.length} criança(s) sob seus cuidados
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-3">
                 {children.length === 0 ? (
                   <div className="text-center py-8">
                     <p className="text-sm text-muted-foreground">
@@ -259,37 +272,54 @@ export function ProfessionalDashboard() {
                     </p>
                   </div>
                 ) : (
-                  <ScrollArea className="h-[400px]">
-                    <div className="space-y-3 pr-4">
-                      {children.map((child) => (
-                        <Card key={child.id} className="bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200">
-                          <CardContent className="p-4">
-                            <div className="flex items-start gap-3">
-                              <Avatar className="w-12 h-12">
-                                <AvatarImage src={child.photo} alt={child.name} />
-                                <AvatarFallback className="bg-purple-200 text-purple-700">
-                                  {child.name.charAt(0).toUpperCase()}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="flex-1">
-                                <p>{child.name}</p>
-                                <div className="space-y-1 mt-1">
+                  <>
+                    <Select
+                      value={selectedChild?.id}
+                      onValueChange={(value) => {
+                        const child = children.find(c => c.id === value)
+                        setSelectedChild(child || null)
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione uma criança" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {children.map((child) => (
+                          <SelectItem key={child.id} value={child.id}>
+                            {child.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    
+                    {selectedChild && (
+                      <Card className="bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200">
+                        <CardContent className="p-4">
+                          <div className="flex items-start gap-3">
+                            <Avatar className="w-16 h-16">
+                              <AvatarImage src={selectedChild.photo} alt={selectedChild.name} />
+                              <AvatarFallback className="bg-purple-200 text-purple-700">
+                                {selectedChild.name.charAt(0).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1">
+                              <p className="font-semibold">{selectedChild.name}</p>
+                              <div className="space-y-1 mt-2">
+                                <p className="text-xs text-muted-foreground">
+                                  Nascimento: {new Date(selectedChild.birthDate).toLocaleDateString('pt-BR')}
+                                </p>
+                                {selectedChild.school && (
                                   <p className="text-xs text-muted-foreground">
-                                    Nascimento: {new Date(child.birthDate).toLocaleDateString('pt-BR')}
+                                    Escola: {selectedChild.school}
                                   </p>
-                                  {child.school && (
-                                    <p className="text-xs text-muted-foreground">
-                                      Escola: {child.school}
-                                    </p>
-                                  )}
-                                </div>
+                                )}
                               </div>
                             </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  </ScrollArea>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </>
                 )}
               </CardContent>
             </Card>
@@ -489,57 +519,133 @@ export function ProfessionalDashboard() {
             </Card>
 
             {/* Recent Events */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Eventos Recentes</CardTitle>
-                <CardDescription>
-                  Últimos 10 eventos registrados
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {events.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    Nenhum evento registrado ainda
-                  </div>
-                ) : (
-                  <ScrollArea className="h-[400px]">
-                    <div className="space-y-3">
-                      {events.map((event) => {
-                        const child = children.find(c => c.id === event.childId)
-                        return (
-                          <Card key={event.id} className="bg-muted/30">
-                            <CardContent className="p-4">
-                              <div className="flex items-start justify-between gap-4 mb-2">
-                                <div className="flex gap-2">
-                                  <Badge variant="outline">{event.type}</Badge>
-                                  <Badge className={severityColors[event.severity]}>
-                                    {event.severity}
-                                  </Badge>
-                                </div>
-                                <p className="text-xs text-muted-foreground whitespace-nowrap">
-                                  {new Date(event.date).toLocaleDateString('pt-BR')} • {event.time}
-                                </p>
-                              </div>
-                              <p className="text-sm mb-1">{child?.name}</p>
-                              <p className="text-sm text-muted-foreground">{event.description}</p>
-                            </CardContent>
-                          </Card>
-                        )
-                      })}
-                    </div>
-                  </ScrollArea>
-                )}
-              </CardContent>
-            </Card>
+            {!selectedChild ? (
+              <Card>
+                <CardContent className="py-16 text-center">
+                  <Users className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+                  <h3>Nenhuma criança selecionada</h3>
+                  <p className="text-muted-foreground mt-2">
+                    Selecione uma criança para visualizar seus eventos
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <>
+                {/* Calendar */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Calendário de Eventos - {selectedChild.name}</CardTitle>
+                    <CardDescription>
+                      Clique em um dia para ver os eventos
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={(date) => date && setSelectedDate(date)}
+                      className="rounded-md border"
+                      modifiers={{
+                        hasEvent: (date) => {
+                          const dateStr = date.toISOString().split('T')[0]
+                          return daysWithEvents.has(dateStr)
+                        }
+                      }}
+                      modifiersClassNames={{
+                        hasEvent: 'bg-blue-100 font-bold text-blue-900'
+                      }}
+                    />
+                  </CardContent>
+                </Card>
+
+                {/* Events List for Selected Date */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>
+                      Eventos do dia {selectedDate.toLocaleDateString('pt-BR')}
+                    </CardTitle>
+                    <CardDescription>
+                      {eventsForSelectedDate.length} evento(s) registrado(s)
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {eventsForSelectedDate.length === 0 ? (
+                      <p className="text-center text-muted-foreground py-8">
+                        Nenhum evento registrado neste dia
+                      </p>
+                    ) : (
+                      <div className="space-y-3">
+                        {eventsForSelectedDate.map((event) => (
+                          <EventCard
+                            key={event.id}
+                            event={event}
+                            onClick={() => setSelectedEvent(event)}
+                            severityColors={severityColors}
+                            severityBackgroundColors={severityBackgroundColors}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Event Details Dialog */}
+      <Dialog open={!!selectedEvent} onOpenChange={() => setSelectedEvent(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Detalhes do Evento</DialogTitle>
+            <DialogDescription>
+              Informações completas sobre o evento registrado
+            </DialogDescription>
+          </DialogHeader>
+          {selectedEvent && (
+            <div className="space-y-4">
+              <div className="flex gap-2">
+                <Badge variant="outline">{selectedEvent.type}</Badge>
+                <Badge className={severityColors[selectedEvent.severity]}>
+                  {selectedEvent.severity}
+                </Badge>
+              </div>
+              <Separator />
+              <div className="space-y-3">
+                <div>
+                  <Label>Data e Hora</Label>
+                  <p>{new Date(selectedEvent.date).toLocaleDateString('pt-BR')} às {selectedEvent.time}</p>
+                </div>
+                <div>
+                  <Label>Registrado por</Label>
+                  <p>
+                    {selectedEvent.creatorName || selectedEvent.professionalName}
+                    {selectedEvent.creatorRole === 'professional' && selectedEvent.professionalId === user?.id && ' (Você)'}
+                  </p>
+                </div>
+                <div>
+                  <Label>Descrição do Ocorrido</Label>
+                  <p className="text-sm">{selectedEvent.description}</p>
+                </div>
+                <div>
+                  <Label>Avaliação/Observações</Label>
+                  <p className="text-sm">{selectedEvent.evaluation}</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Security Settings */}
       <SecuritySettings
         open={securitySettingsOpen}
         onOpenChange={setSecuritySettingsOpen}
       />
+
+      {/* Footer */}
+      <Footer />
     </div>
   )
 }

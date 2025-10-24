@@ -5,7 +5,7 @@ import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
-import { Heart, UserCheck, Loader2, Users, LogIn, UserPlus } from 'lucide-react'
+import { Heart, UserCheck, Loader2, Users2, LogIn, UserPlus, CheckCircle2 } from 'lucide-react'
 import { Alert, AlertDescription } from './ui/alert'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
 
@@ -186,7 +186,7 @@ export function CoParentAcceptInvite({ token }: CoParentAcceptInviteProps) {
         <CardHeader className="space-y-4">
           <div className="flex justify-center">
             <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl flex items-center justify-center shadow-lg">
-              <Users className="w-8 h-8 text-white" />
+              <Users2 className="w-8 h-8 text-white" />
             </div>
           </div>
           <div className="text-center">
@@ -266,7 +266,10 @@ export function CoParentAcceptInvite({ token }: CoParentAcceptInviteProps) {
                       Processando...
                     </>
                   ) : (
-                    'Fazer Login e Aceitar Convite'
+                    <>
+                      <CheckCircle2 className="w-4 h-4 mr-2" />
+                      Aceitar
+                    </>
                   )}
                 </Button>
               </form>
@@ -332,7 +335,10 @@ export function CoParentAcceptInvite({ token }: CoParentAcceptInviteProps) {
                       Processando...
                     </>
                   ) : (
-                    'Criar Conta e Aceitar Convite'
+                    <>
+                      <CheckCircle2 className="w-4 h-4 mr-2" />
+                      Aceitar
+                    </>
                   )}
                 </Button>
               </form>

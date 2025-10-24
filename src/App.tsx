@@ -6,6 +6,7 @@ import { ProfessionalDashboard } from './components/ProfessionalDashboard'
 import { ProfessionalAcceptInvite } from './components/ProfessionalAcceptInvite'
 import { CoParentAcceptInvite } from './components/CoParentAcceptInvite'
 import { AdminPanel } from './components/AdminPanel'
+import { MobileDetector } from './components/MobileDetector'
 import { Toaster } from './components/ui/sonner'
 
 function AppContent() {
@@ -105,6 +106,7 @@ export default function App() {
   return (
     <AuthProvider>
       <AppContent />
+      <MobileDetector />
       <Toaster />
     </AuthProvider>
   )

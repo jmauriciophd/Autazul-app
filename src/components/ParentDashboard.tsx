@@ -1,6 +1,7 @@
 import { NotificationsPopover } from './NotificationsPopover'
 import { FeedbackDialog } from './FeedbackDialog'
 import { SecuritySettings } from './SecuritySettings'
+import { Footer } from './Footer'
 import { Button } from './ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from './ui/dialog'
@@ -25,6 +26,7 @@ import { ReportsGenerator } from './ReportsGenerator'
 import { Badge } from './ui/badge'
 import { ScrollArea } from './ui/scroll-area'
 import { Separator } from './ui/separator'
+import { copyToClipboard as copyToClipboardUtil } from '../utils/clipboard'
 import { Calendar as CalendarIcon, Users, FileText, Plus, Copy, Check, LogOut, Shield, Crown, ChevronLeft, ChevronRight, Settings, Edit, UserPlus, Trash2, BarChart3 } from 'lucide-react'
 
 interface Child {
@@ -271,10 +273,15 @@ export function ParentDashboard() {
   }
 
   function copyToClipboard(text: string) {
-    navigator.clipboard.writeText(text)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-    notify.success(messages.general.copySuccess)
+    copyToClipboardUtil(text).then(success => {
+      if (success) {
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+        notify.success(messages.general.copySuccess)
+      } else {
+        notify.error('Erro ao copiar', 'Tente copiar manualmente')
+      }
+    })
   }
 
   const daysWithEvents = new Set(
@@ -438,10 +445,32 @@ export function ParentDashboard() {
                       </div>
                     )}
                     {(selectedChild as any).accessType === 'coparent' && (
-                      <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-900">
-                        <p className="font-semibold">🤝 Co-Responsável</p>
-                        <p className="text-xs mt-1">Responsável principal: {(selectedChild as any).primaryParent}</p>
-                      </div>
+                      <>
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-900">
+                          <p className="font-semibold">🤝 Co-Responsável</p>
+                          <p className="text-xs mt-1">Responsável principal: {(selectedChild as any).primaryParent}</p>
+                        </div>
+                        <Button 
+                          className="w-full" 
+                          variant="destructive"
+                          onClick={async () => {
+                            if (confirm(`Tem certeza que deseja se desvincular de ${selectedChild.name}? Você não terá mais acesso aos eventos e informações desta criança.`)) {
+                              try {
+                                await api.leaveAsCoParent(selectedChild.id)
+                                await loadChildren()
+                                setSelectedChild(null)
+                                notify.success('Desvinculado com sucesso', `Você não é mais co-responsável de ${selectedChild.name}`)
+                              } catch (error) {
+                                console.error('Error leaving as co-parent:', error)
+                                notify.error('Erro ao desvincular', 'Tente novamente')
+                              }
+                            }
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Remover da Minha Lista
+                        </Button>
+                      </>
                     )}
                     {((selectedChild as any).accessType === 'owner' || (selectedChild as any).accessType === 'coparent') && (
                       <Button 
@@ -1057,6 +1086,9 @@ export function ParentDashboard() {
         open={securitySettingsOpen}
         onOpenChange={setSecuritySettingsOpen}
       />
+
+      {/* Footer */}
+      <Footer />
     </div>
   )
 }

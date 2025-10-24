@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 import { Users, School, Image, UserPlus, Copy, Check, Trash2 } from 'lucide-react'
 import { Badge } from './ui/badge'
+import { copyToClipboard as copyToClipboardUtil } from '../utils/clipboard'
 
 interface Child {
   id: string
@@ -105,8 +106,12 @@ export function ChildProfileEditor({ child, open, onOpenChange, onUpdate }: Chil
     setLoading(true)
 
     try {
-      const { inviteUrl: url } = await api.createCoParentInvite(child.id, coParentEmail, coParentName)
-      setInviteUrl(url)
+      const { inviteUrl: url, token } = await api.createCoParentInvite(child.id, coParentEmail, coParentName)
+      
+      // Garantir que o link use o domínio correto do frontend
+      const correctUrl = `${window.location.origin}/#/coparent/accept/${token}`
+      setInviteUrl(correctUrl)
+      
       setShowInviteDialog(true)
       setCoParentName('')
       setCoParentEmail('')
@@ -149,7 +154,7 @@ export function ChildProfileEditor({ child, open, onOpenChange, onUpdate }: Chil
   }
 
   function copyToClipboard(text: string) {
-    navigator.clipboard.writeText(text)
+    copyToClipboardUtil(text)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
     notify.success('Link copiado!')

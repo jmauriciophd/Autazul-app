@@ -732,9 +732,10 @@ app.get('/make-server-a07d0a8e/children/:childId/professionals', async (c) => {
 
     // Get pending invites
     const allInvites = await kv.getByPrefix('invite:')
-    for (const inviteData of allInvites) {
-      const invite = inviteData.value
-      if (invite && invite.childId === childId && !invite.acceptedAt) {
+    for (const invite of allInvites) {
+      // getByPrefix returns array of values directly
+      // Only show invites that are for this child, not accepted, and not deleted
+      if (invite && invite.childId === childId && !invite.acceptedAt && !invite.deletedAt) {
         professionals.push({
           id: `invite-${invite.token}`,
           name: invite.professionalName,
@@ -771,7 +772,38 @@ app.delete('/make-server-a07d0a8e/children/:childId/professionals/:professionalI
       return c.json({ error: 'Unauthorized' }, 403)
     }
 
-    // Remove professional link
+    // Check if this is a pending invite (id starts with "invite-")
+    if (professionalId.startsWith('invite-')) {
+      const token = professionalId.replace('invite-', '')
+      const invite = await kv.get(`invite:${token}`)
+      
+      if (!invite) {
+        console.log(`Invite not found for token: ${token}. It may have been already accepted or deleted.`)
+        // Return success anyway since the desired state is achieved (invite is gone)
+        return c.json({ 
+          success: true, 
+          message: 'Convite já foi removido ou aceito anteriormente' 
+        })
+      }
+      
+      // Verify that the invite belongs to this child
+      if (invite.childId !== childId) {
+        console.log(`Invite belongs to different child. Invite childId: ${invite.childId}, requested childId: ${childId}`)
+        return c.json({ error: 'Unauthorized' }, 403)
+      }
+      
+      // Mark invite as deleted instead of removing completely (for history)
+      await kv.set(`invite:${token}`, {
+        ...invite,
+        deletedAt: new Date().toISOString(),
+        deletedBy: user.id
+      })
+      console.log(`Successfully marked invite as deleted: ${token}`)
+      
+      return c.json({ success: true })
+    }
+
+    // Remove professional link (for accepted professionals)
     await kv.del(`professional:${professionalId}:child:${childId}`)
 
     // Remove from child's professionals list
@@ -1579,6 +1611,60 @@ app.get('/make-server-a07d0a8e/children/:childId/coparents', async (c) => {
   }
 })
 
+// Remove co-parent from child (co-parent removes themselves)
+app.delete('/make-server-a07d0a8e/children/:childId/coparent/leave', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const childId = c.req.param('childId')
+    const child = await kv.get(`child:${childId}`)
+    
+    if (!child) {
+      return c.json({ error: 'Filho não encontrado' }, 404)
+    }
+
+    // Verify user is a co-parent of this child (not the owner)
+    const coParentIds = await kv.get(`coparents:child:${childId}`) || []
+    if (!coParentIds.includes(user.id)) {
+      return c.json({ error: 'Você não é co-responsável desta criança' }, 403)
+    }
+
+    // Prevent owner from using this route
+    if (child.parentId === user.id) {
+      return c.json({ error: 'O responsável principal não pode se remover' }, 403)
+    }
+
+    // Remove from child's co-parents list
+    await kv.set(`coparents:child:${childId}`, coParentIds.filter((id: string) => id !== user.id))
+
+    // Remove from user's children list
+    const userChildrenKey = `children:${user.id}`
+    const userChildren = await kv.get(userChildrenKey) || []
+    await kv.set(userChildrenKey, userChildren.filter((id: string) => id !== childId))
+
+    // Create notification for the owner
+    const ownerUser = await kv.get(`user:${child.parentId}`)
+    if (ownerUser) {
+      await createNotification(
+        child.parentId,
+        'coparent_left',
+        'Co-responsável se desvinculou',
+        `${user.email} não é mais co-responsável de ${child.name}`,
+        childId
+      )
+    }
+
+    return c.json({ success: true, message: 'Você foi desvinculado desta criança' })
+  } catch (error) {
+    console.log('Error removing co-parent:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
 // ===== APPOINTMENT ROUTES =====
 
 // Create appointment
@@ -1766,6 +1852,8 @@ app.get('/make-server-a07d0a8e/admin/settings', async (c) => {
 
     const settings = await kv.get('admin:settings') || {
       googleAdsCode: '',
+      googleAdsSegmentation: '',
+      banners: [],
       bannerUrl: '',
       bannerLink: ''
     }
@@ -1791,10 +1879,13 @@ app.put('/make-server-a07d0a8e/admin/settings', async (c) => {
       return c.json({ error: 'Forbidden - Admin access required' }, 403)
     }
 
-    const { googleAdsCode, bannerUrl, bannerLink } = await c.req.json()
+    const body = await c.req.json()
+    const { googleAdsCode, googleAdsSegmentation, banners, bannerUrl, bannerLink } = body
 
     const settings = {
       googleAdsCode: googleAdsCode || '',
+      googleAdsSegmentation: googleAdsSegmentation || '',
+      banners: banners || [],
       bannerUrl: bannerUrl || '',
       bannerLink: bannerLink || '',
       updatedAt: new Date().toISOString(),
@@ -1810,11 +1901,84 @@ app.put('/make-server-a07d0a8e/admin/settings', async (c) => {
   }
 })
 
+// Get admin stats
+app.get('/make-server-a07d0a8e/admin/stats', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const userData = await kv.get(`user:${user.id}`)
+    if (!isAdmin(userData?.email)) {
+      return c.json({ error: 'Forbidden - Admin access required' }, 403)
+    }
+
+    // Get all users
+    const allUsers = await kv.getByPrefix('user:')
+    const users = allUsers.filter((u: any) => u && u.id)
+
+    // Get all children
+    const allChildren = await kv.getByPrefix('child:')
+    const children = allChildren.filter((c: any) => c && c.id)
+
+    // Get all events
+    const allEvents = await kv.getByPrefix('event:')
+    const events = allEvents.filter((e: any) => e && e.id)
+
+    // Calculate stats
+    const totalUsers = users.length
+    const totalParents = users.filter((u: any) => u.role === 'parent').length
+    const totalProfessionals = users.filter((u: any) => u.role === 'professional').length
+    const totalChildren = children.length
+    const totalEvents = events.length
+
+    // Build user stats with registration count
+    const userStats = users.map((user: any) => {
+      let registrationCount = 0
+
+      // Count children created by this user
+      if (user.role === 'parent') {
+        registrationCount = children.filter((child: any) => child.parentId === user.id).length
+      }
+
+      // Count events created by this user (professionals)
+      if (user.role === 'professional') {
+        registrationCount = events.filter((event: any) => event.professionalId === user.id).length
+      }
+
+      return {
+        name: user.name || 'Sem nome',
+        email: user.email || 'Sem email',
+        userType: user.role || 'parent',
+        registrationCount,
+        joinedAt: user.createdAt || new Date().toISOString()
+      }
+    }).sort((a: any, b: any) => new Date(b.joinedAt).getTime() - new Date(a.joinedAt).getTime())
+
+    const systemStats = {
+      totalUsers,
+      totalParents,
+      totalProfessionals,
+      totalChildren,
+      totalEvents
+    }
+
+    return c.json({ systemStats, userStats })
+  } catch (error) {
+    console.log('Error fetching admin stats:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
 // Get public admin settings (for non-admin users to view ads)
 app.get('/make-server-a07d0a8e/admin/public-settings', async (c) => {
   try {
     const settings = await kv.get('admin:settings') || {
       googleAdsCode: '',
+      googleAdsSegmentation: '',
+      banners: [],
       bannerUrl: '',
       bannerLink: ''
     }
@@ -1823,6 +1987,7 @@ app.get('/make-server-a07d0a8e/admin/public-settings', async (c) => {
     return c.json({ 
       settings: {
         googleAdsCode: settings.googleAdsCode,
+        banners: settings.banners || [],
         bannerUrl: settings.bannerUrl,
         bannerLink: settings.bannerLink
       }
@@ -1965,8 +2130,8 @@ app.get('/make-server-a07d0a8e/invitations/pending', async (c) => {
     const allInvitations = await kv.getByPrefix('invitation:')
     const userInvitations = []
 
-    for (const invData of allInvitations) {
-      const invitation = invData.value || invData
+    for (const invitation of allInvitations) {
+      // getByPrefix returns array of values directly
       if (invitation && invitation.toUserId === user.id && invitation.status === 'pending') {
         userInvitations.push(invitation)
       }
