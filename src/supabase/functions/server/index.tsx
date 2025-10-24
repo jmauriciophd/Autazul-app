@@ -732,8 +732,8 @@ app.get('/make-server-a07d0a8e/children/:childId/professionals', async (c) => {
 
     // Get pending invites
     const allInvites = await kv.getByPrefix('invite:')
-    for (const inviteData of allInvites) {
-      const invite = inviteData.value
+    for (const invite of allInvites) {
+      // getByPrefix returns array of values directly
       if (invite && invite.childId === childId && !invite.acceptedAt) {
         professionals.push({
           id: `invite-${invite.token}`,
@@ -2044,8 +2044,8 @@ app.get('/make-server-a07d0a8e/invitations/pending', async (c) => {
     const allInvitations = await kv.getByPrefix('invitation:')
     const userInvitations = []
 
-    for (const invData of allInvitations) {
-      const invitation = invData.value || invData
+    for (const invitation of allInvitations) {
+      // getByPrefix returns array of values directly
       if (invitation && invitation.toUserId === user.id && invitation.status === 'pending') {
         userInvitations.push(invitation)
       }
