@@ -10,7 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table'
 import { Badge } from './ui/badge'
 import { Alert, AlertDescription } from './ui/alert'
-import { Settings, Image, Code, Loader2, BarChart3, Users as UsersIcon, Trash2, Plus, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Settings, Image, Code, Loader2, BarChart3, Users as UsersIcon, Trash2, Plus, ChevronLeft, ChevronRight, UserCog } from 'lucide-react'
+import { AdminManagement } from './AdminManagement'
 
 interface Banner {
   id: string
@@ -241,6 +242,10 @@ export function AdminPanel() {
             <TabsTrigger value="banners" className="gap-2">
               <Image className="w-4 h-4" />
               Banners
+            </TabsTrigger>
+            <TabsTrigger value="adminManagement" className="gap-2">
+              <UserCog className="w-4 h-4" />
+              Gerenciamento de Admins
             </TabsTrigger>
           </TabsList>
 
@@ -574,6 +579,11 @@ export function AdminPanel() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Admin Management Tab */}
+          <TabsContent value="adminManagement" className="space-y-6">
+            <AdminManagement />
           </TabsContent>
         </Tabs>
       </div>

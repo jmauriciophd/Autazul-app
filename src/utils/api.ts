@@ -499,6 +499,33 @@ export class ApiClient {
     return this.request<{ terms: string }>('/lgpd/terms')
   }
 
+  // Admin - Gerenciamento de Admins
+  async getAdminList() {
+    return this.request<{ admins: string[] }>('/admin/admins')
+  }
+
+  async addAdmin(email: string) {
+    return this.request<{ success: boolean; message: string }>('/admin/admins/add', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    })
+  }
+
+  async removeAdmin(email: string) {
+    return this.request<{ success: boolean; message: string }>('/admin/admins/remove', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    })
+  }
+
+  // User Profile - Correção de Dados
+  async updateUserProfile(data: { name?: string; email?: string }) {
+    return this.request<{ success: boolean; user: any }>('/user/update-profile', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
   // LGPD - Admin
   async getDeletionRequests() {
     return this.request<{ requests: any[] }>('/admin/deletion-requests')
@@ -544,6 +571,22 @@ export class ApiClient {
     return this.request<{ success: boolean }>('/admin/terms', {
       method: 'PUT',
       body: JSON.stringify({ content }),
+    })
+  }
+
+  // LGPD - Relatório de Compartilhamento
+  async getDataSharingReport(userId?: string) {
+    return this.request<{ success: boolean; report: any }>('/admin/data-sharing-report', {
+      method: 'POST',
+      body: JSON.stringify({ userId }),
+    })
+  }
+
+  // System Updates - Notificações
+  async sendSystemUpdateNotification(title: string, message: string, updateType: string) {
+    return this.request<{ success: boolean; message: string }>('/admin/send-update-notification', {
+      method: 'POST',
+      body: JSON.stringify({ title, message, updateType }),
     })
   }
 }

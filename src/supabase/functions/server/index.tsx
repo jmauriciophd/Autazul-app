@@ -88,9 +88,28 @@ const ADMIN_EMAILS = [
   Deno.env.get('ADMIN_USER2') || '',
 ].filter(Boolean)
 
-// Helper function to check if user is admin
+// Helper function to check if user is admin (simple sync version)
 function isAdmin(email: string): boolean {
   return ADMIN_EMAILS.includes(email)
+}
+
+// Check if user is admin (async to check both env vars and KV store)
+async function isAdminCheck(email: string): Promise<boolean> {
+  console.log('🔍 Checking admin access for:', email)
+  console.log('📋 ADMIN_EMAILS from env:', ADMIN_EMAILS)
+  
+  if (ADMIN_EMAILS.includes(email.toLowerCase())) {
+    console.log('✅ User is admin (from env)')
+    return true
+  }
+  
+  const adminList = await kv.get('admin_list') || []
+  console.log('📋 Admin list from KV:', adminList)
+  
+  const isAdminFromKV = adminList.includes(email.toLowerCase())
+  console.log(isAdminFromKV ? '✅ User is admin (from KV)' : '❌ User is NOT admin')
+  
+  return isAdminFromKV
 }
 
 console.log('🚀 Autazul Server Starting...')
@@ -190,8 +209,9 @@ app.post('/make-server-a07d0a8e/get-user', async (c) => {
     // Try to get user data from KV store
     const userData = await kv.get(`user:${user.id}`)
     
-    // Check if user is admin (using environment variables)
-    const userIsAdmin = isAdmin(user.email || '')
+    // Check if user is admin (using environment variables and KV store)
+    const userIsAdmin = await isAdminCheck(user.email || '')
+    console.log('Admin check result for', user.email, ':', userIsAdmin)
     
     if (userData) {
       console.log('User data found in KV store:', userData)
@@ -1831,16 +1851,6 @@ app.put('/make-server-a07d0a8e/appointments/:appointmentId', async (c) => {
 
 console.log('Admin emails configured:', ADMIN_EMAILS.length > 0 ? `${ADMIN_EMAILS.length} admins` : 'No admins configured')
 
-// Check if user is admin (async to check both env vars and KV store)
-async function isAdminCheck(email: string): Promise<boolean> {
-  if (ADMIN_EMAILS.includes(email.toLowerCase())) {
-    return true
-  }
-  
-  const adminList = await kv.get('admin_list') || []
-  return adminList.includes(email.toLowerCase())
-}
-
 // Get admin settings
 app.get('/make-server-a07d0a8e/admin/settings', async (c) => {
   try {
@@ -1851,7 +1861,8 @@ app.get('/make-server-a07d0a8e/admin/settings', async (c) => {
     }
 
     const userData = await kv.get(`user:${user.id}`)
-    if (!isAdmin(userData?.email)) {
+    if (!userData || !await isAdminCheck(userData.email)) {
+      console.log('❌ Admin check failed for user:', userData?.email)
       return c.json({ error: 'Forbidden - Admin access required' }, 403)
     }
 
@@ -1880,7 +1891,8 @@ app.put('/make-server-a07d0a8e/admin/settings', async (c) => {
     }
 
     const userData = await kv.get(`user:${user.id}`)
-    if (!isAdmin(userData?.email)) {
+    if (!userData || !await isAdminCheck(userData.email)) {
+      console.log('❌ Admin check failed for user:', userData?.email)
       return c.json({ error: 'Forbidden - Admin access required' }, 403)
     }
 
@@ -1916,7 +1928,8 @@ app.get('/make-server-a07d0a8e/admin/stats', async (c) => {
     }
 
     const userData = await kv.get(`user:${user.id}`)
-    if (!isAdmin(userData?.email)) {
+    if (!userData || !await isAdminCheck(userData.email)) {
+      console.log('❌ Admin check failed for user:', userData?.email)
       return c.json({ error: 'Forbidden - Admin access required' }, 403)
     }
 
@@ -4031,6 +4044,316 @@ app.get('/make-server-a07d0a8e/admin/data-sharing-report/:userId', async (c) => 
     return c.json({ report })
   } catch (error) {
     console.error('Error generating data sharing report:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// ===== ADMIN - MANAGE ADMINS =====
+
+// Get admin list
+app.get('/make-server-a07d0a8e/admin/admins', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const userData = await kv.get(`user:${user.id}`)
+    if (!userData || !await isAdminCheck(userData.email)) {
+      console.log('❌ Admin check failed for user:', userData?.email)
+      return c.json({ error: 'Forbidden - Admin access required' }, 403)
+    }
+
+    const adminList = await kv.get('admin_list') || []
+    
+    return c.json({ admins: adminList })
+  } catch (error) {
+    console.error('Error getting admin list:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// Add admin
+app.post('/make-server-a07d0a8e/admin/admins/add', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const userData = await kv.get(`user:${user.id}`)
+    if (!userData || !await isAdminCheck(userData.email)) {
+      console.log('❌ Admin check failed for user:', userData?.email)
+      return c.json({ error: 'Forbidden - Admin access required' }, 403)
+    }
+
+    const { email } = await c.req.json()
+    
+    if (!email || !email.includes('@')) {
+      return c.json({ error: 'Email inválido' }, 400)
+    }
+
+    const normalizedEmail = email.toLowerCase().trim()
+    
+    // Check if user exists
+    const allUsers = await kv.getByPrefix('user:')
+    const targetUser = allUsers.find((u: any) => u.email === normalizedEmail)
+    
+    if (!targetUser) {
+      return c.json({ error: 'Usuário não encontrado no sistema' }, 404)
+    }
+
+    const adminList = await kv.get('admin_list') || []
+    
+    if (adminList.includes(normalizedEmail)) {
+      return c.json({ error: 'Este usuário já é administrador' }, 400)
+    }
+    
+    if (ADMIN_EMAILS.includes(normalizedEmail)) {
+      return c.json({ error: 'Este usuário já é administrador do sistema' }, 400)
+    }
+
+    adminList.push(normalizedEmail)
+    await kv.set('admin_list', adminList)
+
+    await createAuditLog(user.id, 'admin_added', { 
+      addedAdmin: normalizedEmail,
+      timestamp: new Date().toISOString() 
+    })
+
+    console.log('✅ Admin added:', normalizedEmail)
+    return c.json({ success: true, message: `${normalizedEmail} agora é administrador` })
+  } catch (error) {
+    console.error('Error adding admin:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// Remove admin
+app.post('/make-server-a07d0a8e/admin/admins/remove', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const userData = await kv.get(`user:${user.id}`)
+    if (!userData || !await isAdminCheck(userData.email)) {
+      console.log('❌ Admin check failed for user:', userData?.email)
+      return c.json({ error: 'Forbidden - Admin access required' }, 403)
+    }
+
+    const { email } = await c.req.json()
+    
+    if (!email) {
+      return c.json({ error: 'Email é obrigatório' }, 400)
+    }
+
+    const normalizedEmail = email.toLowerCase().trim()
+    
+    // Don't allow removing system admins
+    if (ADMIN_EMAILS.includes(normalizedEmail)) {
+      return c.json({ error: 'Não é possível remover administradores do sistema' }, 400)
+    }
+
+    const adminList = await kv.get('admin_list') || []
+    
+    if (!adminList.includes(normalizedEmail)) {
+      return c.json({ error: 'Este usuário não é administrador' }, 400)
+    }
+
+    const updatedList = adminList.filter((a: string) => a !== normalizedEmail)
+    await kv.set('admin_list', updatedList)
+
+    await createAuditLog(user.id, 'admin_removed', { 
+      removedAdmin: normalizedEmail,
+      timestamp: new Date().toISOString() 
+    })
+
+    console.log('✅ Admin removed:', normalizedEmail)
+    return c.json({ success: true, message: `${normalizedEmail} não é mais administrador` })
+  } catch (error) {
+    console.error('Error removing admin:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// ===== USER PROFILE - UPDATE =====
+
+// Update user profile
+app.put('/make-server-a07d0a8e/user/update-profile', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const { name, email } = await c.req.json()
+    
+    const userData = await kv.get(`user:${user.id}`)
+    if (!userData) {
+      return c.json({ error: 'Usuário não encontrado' }, 404)
+    }
+
+    // Update name if provided
+    if (name && name.trim()) {
+      userData.name = name.trim()
+    }
+
+    // Note: Email updates require additional verification in production
+    // For now, we'll just update the metadata
+    if (email && email.includes('@')) {
+      const normalizedEmail = email.toLowerCase().trim()
+      
+      // Check if email is already in use
+      const allUsers = await kv.getByPrefix('user:')
+      const emailExists = allUsers.some((u: any) => u.email === normalizedEmail && u.id !== user.id)
+      
+      if (emailExists) {
+        return c.json({ error: 'Este email já está em uso' }, 400)
+      }
+      
+      userData.email = normalizedEmail
+    }
+
+    userData.updatedAt = new Date().toISOString()
+    await kv.set(`user:${user.id}`, userData)
+
+    await createAuditLog(user.id, 'profile_updated', { 
+      updatedFields: { name: !!name, email: !!email },
+      timestamp: new Date().toISOString() 
+    })
+
+    console.log('✅ User profile updated:', user.id)
+    return c.json({ success: true, user: userData })
+  } catch (error) {
+    console.error('Error updating user profile:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// ===== SYSTEM UPDATE NOTIFICATIONS =====
+
+// Send system update notification to all users
+app.post('/make-server-a07d0a8e/admin/send-update-notification', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const userData = await kv.get(`user:${user.id}`)
+    if (!userData || !await isAdminCheck(userData.email)) {
+      console.log('❌ Admin check failed for user:', userData?.email)
+      return c.json({ error: 'Forbidden - Admin access required' }, 403)
+    }
+
+    const { title, message, updateType } = await c.req.json()
+    
+    if (!title || !message) {
+      return c.json({ error: 'Título e mensagem são obrigatórios' }, 400)
+    }
+
+    // Get all users
+    const allUsers = await kv.getByPrefix('user:')
+    
+    const typeLabels: Record<string, string> = {
+      'feature': 'Nova Funcionalidade',
+      'improvement': 'Melhoria',
+      'bugfix': 'Correção de Bugs',
+      'security': 'Atualização de Segurança',
+      'policy': 'Atualização de Política',
+      'maintenance': 'Manutenção'
+    }
+    
+    const typeLabel = typeLabels[updateType] || 'Atualização do Sistema'
+    
+    // Generate email template
+    const emailTemplate = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #373737; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background-color: #15C3D6; color: white; padding: 20px; text-center; border-radius: 8px 8px 0 0; }
+    .content { background-color: #F5F8FA; padding: 30px; border-radius: 0 0 8px 8px; }
+    .badge { background-color: #15C3D6; color: white; padding: 5px 10px; border-radius: 4px; display: inline-block; margin-bottom: 15px; }
+    .message { background-color: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #15C3D6; }
+    .footer { text-align: center; margin-top: 30px; color: #5C8599; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🔔 Autazul - Notificação do Sistema</h1>
+    </div>
+    <div class="content">
+      <div class="badge">${typeLabel}</div>
+      <h2>${title}</h2>
+      <div class="message">
+        ${message.replace(/\n/g, '<br>')}
+      </div>
+      <p>Esta notificação foi enviada automaticamente pela equipe Autazul.</p>
+    </div>
+    <div class="footer">
+      <p>© ${new Date().getFullYear()} Autazul - Plataforma de Acompanhamento</p>
+      <p>Esta é uma mensagem automática, não responda este email.</p>
+    </div>
+  </div>
+</body>
+</html>
+    `.trim()
+
+    let successCount = 0
+    let failCount = 0
+    
+    // Send emails to all users
+    for (const targetUser of allUsers) {
+      if (targetUser.email) {
+        try {
+          const emailResult = await sendEmail(
+            targetUser.email,
+            `📢 Autazul: ${title}`,
+            emailTemplate
+          )
+          
+          if (emailResult.success) {
+            successCount++
+          } else {
+            failCount++
+          }
+        } catch (emailError) {
+          console.error(`Failed to send email to ${targetUser.email}:`, emailError)
+          failCount++
+        }
+      }
+    }
+
+    await createAuditLog(user.id, 'system_notification_sent', {
+      title,
+      updateType,
+      recipientCount: allUsers.length,
+      successCount,
+      failCount,
+      timestamp: new Date().toISOString()
+    })
+
+    console.log(`✅ System notification sent: ${successCount} success, ${failCount} failed`)
+    
+    return c.json({ 
+      success: true, 
+      message: `Notificação enviada para ${successCount} usuários (${failCount} falharam)`,
+      stats: { total: allUsers.length, success: successCount, failed: failCount }
+    })
+  } catch (error) {
+    console.error('Error sending system notification:', error)
     return c.json({ error: String(error) }, 500)
   }
 })

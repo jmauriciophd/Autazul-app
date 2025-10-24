@@ -55,10 +55,10 @@ export function Footer() {
               Política de Privacidade
             </DialogTitle>
             <DialogDescription>
-              Última atualização: {new Date().toLocaleDateString('pt-BR')}
+              Última atualização: 24/10/2025
             </DialogDescription>
           </DialogHeader>
-          <ScrollArea className="h-[60vh] pr-4">
+          <ScrollArea className="h-[70vh] pr-4">
             <div className="space-y-6 text-sm">
               <section>
                 <h3 className="font-semibold text-base mb-2">1. Introdução</h3>
@@ -221,10 +221,10 @@ export function Footer() {
               Termos de Uso
             </DialogTitle>
             <DialogDescription>
-              Última atualização: {new Date().toLocaleDateString('pt-BR')}
+              Última atualização: 24/10/2025
             </DialogDescription>
           </DialogHeader>
-          <ScrollArea className="h-[60vh] pr-4">
+          <ScrollArea className="h-[70vh] pr-4">
             <div className="space-y-6 text-sm">
               <section>
                 <h3 className="font-semibold text-base mb-2">1. Aceitação dos Termos</h3>
