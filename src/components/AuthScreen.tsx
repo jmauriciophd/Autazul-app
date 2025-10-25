@@ -33,8 +33,8 @@ export function AuthScreen() {
 
     try {
       if (isLogin) {
-        // Salvar perfil selecionado antes do login
-        localStorage.setItem('selectedProfile', profileType)
+        // Salvar perfil selecionado antes do login (usando sessionStorage para segurança)
+        sessionStorage.setItem('selectedProfile', profileType)
         await signIn(email, password)
       } else {
         if (!name) {

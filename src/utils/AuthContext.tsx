@@ -121,13 +121,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       api.setToken(data.session.access_token)
       const { user: userData } = await api.getUser()
       
+      console.log('=== LOGIN DEBUG ===')
+      console.log('User data from server:', userData)
+      
       // Check if user is admin - userData.isAdmin comes from server
       // Server verifies against environment variables
       const isAdmin = userData.isAdmin || false
       
       // Get selected profile from sessionStorage (set during login)
       const selectedProfile = sessionStorage.getItem('selectedProfile') as 'parent' | 'professional' | null
+      console.log('Selected profile from sessionStorage:', selectedProfile)
+      console.log('User base role from server:', userData.role)
+      
+      // IMPORTANTE: Respeitar a seleção do usuário primeiro
+      // Se o usuário selecionou um perfil específico, usar esse perfil
+      // Caso contrário, usar o role padrão do banco de dados
       const activeRole = selectedProfile || userData.role || 'parent'
+      console.log('Active role determined:', activeRole)
       
       // Save active role for this session
       const userWithProfile = { 
@@ -136,6 +146,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role: activeRole,
         baseRole: userData.role // Keep original role from DB
       }
+      
+      console.log('Final user object:', userWithProfile)
+      console.log('==================')
       
       setUser(userWithProfile)
       sessionStorage.setItem('activeRole', activeRole)
